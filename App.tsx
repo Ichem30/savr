@@ -226,15 +226,27 @@ const App: React.FC = () => {
           finalValue = Number(value);
       }
 
-      if (action === 'set') {
-          updatedProfile = { ...updatedProfile, [field]: finalValue };
-      } else if (field === 'allergies' || field === 'dislikes') {
-          const currentList = (updatedProfile as any)[field] as string[];
+      // ARRAY FIELDS (Allergies, Dislikes)
+      if (field === 'allergies' || field === 'dislikes') {
+          const currentList = (updatedProfile as any)[field] as string[] || [];
           if (action === 'add') {
               updatedProfile = { ...updatedProfile, [field]: [...currentList, finalValue] };
-          } else {
+          } else if (action === 'remove') {
               updatedProfile = { ...updatedProfile, [field]: currentList.filter((i: string) => i.toLowerCase() !== finalValue.toLowerCase()) };
+          } else if (action === 'set') {
+              // If AI tries to 'set' an allergy, we assume it replaces the list OR adds it if list was empty?
+              // Safer to just add it to be robust, or replace if it's a list
+              if (Array.isArray(finalValue)) {
+                  updatedProfile = { ...updatedProfile, [field]: finalValue };
+              } else {
+                  updatedProfile = { ...updatedProfile, [field]: [...currentList, finalValue] };
+              }
           }
+      } 
+      // SCALAR FIELDS (Name, Height, Weight, Age, Goal)
+      else {
+          // For scalar fields, 'add' or 'set' implies replacing the value
+          updatedProfile = { ...updatedProfile, [field]: finalValue };
       }
       
       await handleSaveProfile(updatedProfile);

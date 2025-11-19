@@ -111,8 +111,8 @@ const chatTools: FunctionDeclaration[] = [
     parameters: {
       type: Type.OBJECT,
       properties: {
-        field: { type: Type.STRING, enum: ["allergies", "dislikes", "goal", "name"] },
-        value: { type: Type.STRING, description: "The value to add, remove, or set" },
+        field: { type: Type.STRING, enum: ["allergies", "dislikes", "goal", "name", "height", "weight", "age", "gender"] },
+        value: { type: Type.STRING, description: "The value to add, remove, or set. For height/weight/age, provide just the number." },
         action: { type: Type.STRING, enum: ["add", "remove", "set"], description: "Action to perform" }
       },
       required: ["field", "value", "action"]

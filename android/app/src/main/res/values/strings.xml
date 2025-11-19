@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">PantryChef</string>
-    <string name="title_activity_main">PantryChef</string>
-    <string name="package_name">com.pantrychef.app</string>
-    <string name="custom_url_scheme">com.pantrychef.app</string>
+    <string name="app_name">Savr</string>
+    <string name="title_activity_main">Savr</string>
+    <string name="package_name">com.savrfood.app</string>
+    <string name="custom_url_scheme">com.savrfood.app</string>
 </resources>

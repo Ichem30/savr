@@ -1,4 +1,4 @@
-package com.pantrychef.app;
+package com.savrfood.app;
 
 import com.getcapacitor.BridgeActivity;
 
