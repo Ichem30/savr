@@ -1,0 +1,8 @@
+{
+  "name": "PantryChef AI",
+  "description": "Turn your leftovers into healthy meals. Personalized recipes based on your pantry, biometrics, and fitness goals.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
