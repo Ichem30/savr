@@ -121,7 +121,10 @@ const App: React.FC = () => {
     }
   };
 
-  const handleGenerateRecipes = async (strictMode: boolean = false) => {
+  const handleGenerateRecipes = async (
+    strictMode: boolean = false, 
+    options?: { mealType?: string, timeLimit?: string, skillLevel?: string, equipment?: string }
+  ) => {
     if (!userProfile) return;
     
     const selectedIngredients = pantry.filter(i => i.isSelected !== false);
@@ -134,7 +137,7 @@ const App: React.FC = () => {
     setLoading(true);
     setView('recipes');
     try {
-      const recipes = await generateRecipes(userProfile, selectedIngredients, strictMode);
+      const recipes = await generateRecipes(userProfile, selectedIngredients, strictMode, options);
       setGeneratedRecipes(recipes);
     } catch (error) {
       console.error(error);

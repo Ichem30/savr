@@ -5,7 +5,7 @@ import { Html5Qrcode } from "html5-qrcode";
 
 interface PantryProps {
   pantry: Ingredient[];
-  onGenerate: (strictMode: boolean) => void;
+  onGenerate: (strictMode: boolean, options?: { mealType?: string, timeLimit?: string, skillLevel?: string }) => void;
   // New props for CRUD operations
   onAdd: (item: Ingredient) => void;
   onUpdate: (item: Ingredient) => void;
@@ -18,6 +18,11 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
   const [showTip, setShowTip] = useState(true);
   const [strictMode, setStrictMode] = useState(false);
   const [filterQuery, setFilterQuery] = useState('');
+  
+  // Generation Options
+  const [selectedMeal, setSelectedMeal] = useState<string | undefined>(undefined);
+  const [selectedTime, setSelectedTime] = useState<string | undefined>(undefined);
+  const [selectedSkill, setSelectedSkill] = useState<string | undefined>(undefined);
   
   // Scanner State
   const [isScanning, setIsScanning] = useState(false);
@@ -322,6 +327,43 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
 
       {pantry.length > 0 && (
         <div className="absolute bottom-24 left-0 w-full px-6 space-y-3">
+            {/* Preference Pills */}
+            <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar mask-fade-right">
+                <select 
+                    value={selectedMeal || ""} 
+                    onChange={(e) => setSelectedMeal(e.target.value || undefined)}
+                    className="appearance-none bg-white border border-gray-200 text-gray-700 text-xs font-bold py-2 px-4 rounded-full shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                    <option value="">Any Meal</option>
+                    <option value="Breakfast">Breakfast</option>
+                    <option value="Lunch">Lunch</option>
+                    <option value="Dinner">Dinner</option>
+                    <option value="Snack">Snack</option>
+                </select>
+
+                <select 
+                    value={selectedTime || ""} 
+                    onChange={(e) => setSelectedTime(e.target.value || undefined)}
+                    className="appearance-none bg-white border border-gray-200 text-gray-700 text-xs font-bold py-2 px-4 rounded-full shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                    <option value="">Any Time</option>
+                    <option value="15 min">15 min</option>
+                    <option value="30 min">30 min</option>
+                    <option value="60 min">60 min</option>
+                </select>
+
+                <select 
+                    value={selectedSkill || ""} 
+                    onChange={(e) => setSelectedSkill(e.target.value || undefined)}
+                    className="appearance-none bg-white border border-gray-200 text-gray-700 text-xs font-bold py-2 px-4 rounded-full shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                    <option value="">Any Level</option>
+                    <option value="Beginner">Beginner</option>
+                    <option value="Intermediate">Intermediate</option>
+                    <option value="Advanced">Pro</option>
+                </select>
+            </div>
+
             <div onClick={() => setStrictMode(!strictMode)} className="bg-white/90 backdrop-blur p-3 rounded-xl flex items-center justify-between cursor-pointer border border-gray-200 shadow-sm hover:border-primary/30 transition-colors">
                 <div className="flex items-center gap-3">
                     <div className={`p-2 rounded-full ${strictMode ? 'bg-emerald-100 text-primary' : 'bg-gray-100 text-gray-400'}`}>{strictMode ? <Icons.Check size={18} /> : <Icons.ShoppingBag size={18} />}</div>
@@ -329,7 +371,13 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
                 </div>
                 <div className={`w-11 h-6 rounded-full p-1 transition-colors duration-300 ${strictMode ? 'bg-primary' : 'bg-gray-300'}`}><div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-300 ${strictMode ? 'translate-x-5' : ''}`} /></div>
             </div>
-            <button onClick={() => onGenerate(strictMode)} disabled={selectedCount === 0} className={`w-full py-4 rounded-xl font-bold shadow-xl flex items-center justify-center gap-2 transition-all ${selectedCount > 0 ? 'bg-white border-2 border-primary text-primary shadow-primary/10 hover:bg-primary hover:text-white' : 'bg-gray-100 text-gray-400 cursor-not-allowed border-2 border-transparent'}`}><Icons.ChefHat className="w-5 h-5" />{selectedCount > 0 ? `Generate Recipes (${selectedCount})` : 'Select ingredients'}</button>
+            <button 
+                onClick={() => onGenerate(strictMode, { mealType: selectedMeal, timeLimit: selectedTime, skillLevel: selectedSkill })} 
+                disabled={selectedCount === 0} 
+                className={`w-full py-4 rounded-xl font-bold shadow-xl flex items-center justify-center gap-2 transition-all ${selectedCount > 0 ? 'bg-white border-2 border-primary text-primary shadow-primary/10 hover:bg-primary hover:text-white' : 'bg-gray-100 text-gray-400 cursor-not-allowed border-2 border-transparent'}`}
+            >
+                <Icons.ChefHat className="w-5 h-5" />{selectedCount > 0 ? `Generate Recipes (${selectedCount})` : 'Select ingredients'}
+            </button>
         </div>
       )}
     </div>

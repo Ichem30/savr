@@ -11,7 +11,7 @@ interface ChatAssistantProps {
   onRemoveIngredient: (name: string) => void;
   onUpdateProfile: (field: string, value: any, action: 'add' | 'remove' | 'set') => void;
   onNavigate: (view: ViewState) => void;
-  onGenerateRecipes: (strictMode: boolean) => void;
+  onGenerateRecipes: (strictMode: boolean, options?: { mealType?: string, timeLimit?: string, skillLevel?: string, equipment?: string }) => void;
 }
 
 export const ChatAssistant: React.FC<ChatAssistantProps> = ({
@@ -147,8 +147,13 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({
               }
               break;
             case 'generate_recipes':
-               // Trigger generation
-               onGenerateRecipes(!!args.strict_mode);
+               // Trigger generation with extra options if provided by the AI
+               onGenerateRecipes(!!args.strict_mode, {
+                 mealType: args.meal_type,
+                 timeLimit: args.time_limit,
+                 skillLevel: args.skill_level,
+                 equipment: args.equipment
+               });
                toolResponseText = "[Generating Recipes...]";
                // Optionally close chat on mobile to see results
                // setIsOpen(false); 

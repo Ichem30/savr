@@ -100,6 +100,24 @@ const chatTools: FunctionDeclaration[] = [
         strict_mode: { 
           type: Type.BOOLEAN, 
           description: "If true, only use ingredients user has. If false, allow missing ingredients." 
+        },
+        meal_type: {
+          type: Type.STRING,
+          enum: ["Breakfast", "Lunch", "Dinner", "Snack", "Dessert"],
+          description: "Type of meal to generate"
+        },
+        time_limit: {
+          type: Type.STRING,
+          description: "Max cooking time e.g. '15 min', '30 min'"
+        },
+        skill_level: {
+          type: Type.STRING,
+          enum: ["Beginner", "Intermediate", "Advanced"],
+          description: "User's cooking skill level"
+        },
+        equipment: {
+          type: Type.STRING,
+          description: "Available equipment e.g. 'Microwave only', 'Air Fryer', 'Oven'"
         }
       },
       required: []
@@ -123,7 +141,13 @@ const chatTools: FunctionDeclaration[] = [
 export const generateRecipes = async (
   user: UserProfile, 
   pantry: Ingredient[],
-  strictMode: boolean
+  strictMode: boolean,
+  options?: {
+    mealType?: string,
+    timeLimit?: string,
+    skillLevel?: string,
+    equipment?: string
+  }
 ): Promise<Recipe[]> => {
   try {
     const apiKey = process.env.API_KEY;
@@ -165,14 +189,24 @@ export const generateRecipes = async (
           3. Mark any added ingredients in the 'missingIngredients' field.
           `;
 
+    const contextInstructions = `
+      CONTEXT & CONSTRAINTS:
+      - Meal Type: ${options?.mealType || "Any (Decide based on ingredients)"}
+      - Time Limit: ${options?.timeLimit || "Reasonable for a home cook"}
+      - Skill Level: ${options?.skillLevel || "Beginner/Intermediate"}
+      - Equipment: ${options?.equipment || "Standard Kitchen (Stove, Oven, Pan, Pot)"}
+    `;
+
     const prompt = `
       You are a resourceful, eco-conscious Executive Chef AI. Your specialty is "Food Rescue" - creating gourmet or comforting meals from leftovers and random pantry items.
-
+      
       User Profile:
       - Goal: ${user.goal} (Adjust portion sizes and macros to help them achieve this).
       - BMR: approx ${bmr} calories/day.
       - Allergies: ${allergies} (CRITICAL: Do not use these).
       - Dislikes: ${dislikes}.
+
+      ${contextInstructions}
 
       Available Ingredients (Pantry):
       "${pantryList}"
@@ -230,6 +264,9 @@ export const chatWithChef = async (
     const systemInstruction = `
       You are "Chef Remy", a friendly, helpful, and knowledgeable personal AI Chef assistant inside the "PantryFit Chef" app.
       
+      CURRENT CONTEXT:
+      - Date & Time: ${new Date().toLocaleString()}
+      
       CURRENT APP STATE (This is the Source of Truth):
       - User Name: ${user.name}
       - User Goal: ${user.goal}
@@ -240,7 +277,9 @@ export const chatWithChef = async (
       YOUR CAPABILITIES:
       - You can answer questions about food, cooking, and nutrition.
       - You can CONTROL the app using the provided tools.
-      - If user wants to cook or find recipes, use 'generate_recipes'.
+      - If user wants to cook or find recipes, use 'generate_recipes'. 
+        - **IMPORTANT**: Infer 'meal_type' based on the current time if not specified (e.g., Morning -> Breakfast).
+        - Infer 'time_limit' if they mention being in a rush.
       - If the user says "I bought some eggs", use 'add_pantry_item'.
       - If the user says "I hate onions", use 'update_profile'.
       - Always be encouraging about food waste reduction.
