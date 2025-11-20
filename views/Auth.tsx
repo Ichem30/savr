@@ -245,7 +245,7 @@ export const Auth: React.FC<AuthProps> = ({ onSkip, currentUser }) => {
             <div className="w-20 h-20 bg-primary text-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-xl shadow-primary/20">
                 <Icons.ChefHat size={40} />
             </div>
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">PantryFit Chef</h1>
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">Savr</h1>
             <p className="text-gray-500">Turn ingredients into healthy meals.</p>
         </div>
 

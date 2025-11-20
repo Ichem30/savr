@@ -239,7 +239,7 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
             />
             <button onClick={() => setIsScanning(true)} className="ml-2 text-gray-400 hover:text-primary transition-colors flex items-center justify-center border-l border-gray-300 pl-3"><Icons.ScanBarcode size={20} /></button>
           </div>
-          <div className="flex-1 min-w-[80px] bg-gray-100 border-0 rounded-xl px-3 py-3 focus-within:ring-2 focus-within:ring-primary transition-all">
+          <div className="flex-1 min-w-[80px] bg-white border border-gray-200 rounded-xl px-3 py-3 focus-within:ring-2 focus-within:ring-primary transition-all mr-2 shadow-sm">
              <input 
                 type="text"
                 value={quantityInput}
@@ -254,7 +254,7 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
       </div>
 
       {/* List Section */}
-      <div className="flex-1 overflow-y-auto p-6 pb-48 space-y-6">
+      <div className="flex-1 overflow-y-auto p-6 pb-64 space-y-6">
         {pantry.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 text-gray-400 mt-4">
             <Icons.Refrigerator size={48} className="mb-3 opacity-20" />
@@ -326,7 +326,7 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
       </div>
 
       {pantry.length > 0 && (
-        <div className="absolute bottom-24 left-0 w-full px-6 space-y-3">
+        <div className="absolute bottom-0 left-0 w-full px-6 pb-4 pt-6 space-y-3 bg-gradient-to-t from-gray-50 via-gray-50 to-transparent z-20">
             {/* Preference Pills */}
             <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar mask-fade-right">
                 <select 

@@ -60,7 +60,7 @@ const chatTools: FunctionDeclaration[] = [
       type: Type.OBJECT,
       properties: {
         item_name: { type: Type.STRING, description: "Name of the ingredient" },
-        quantity: { type: Type.STRING, description: "Quantity e.g. '200g', '3 units'" }
+        quantity: { type: Type.STRING, description: "Quantity e.g. '200g', '3 units'. Optional, defaults to '1' if not specified." }
       },
       required: ["item_name"]
     }
@@ -262,7 +262,7 @@ export const chatWithChef = async (
     const pantryList = pantry.map(i => `${i.name} ${i.quantity ? `(${i.quantity})` : ''}`).join(', ');
     
     const systemInstruction = `
-      You are "Chef Remy", a friendly, helpful, and knowledgeable personal AI Chef assistant inside the "PantryFit Chef" app.
+      You are "Chef Remy", a friendly, helpful, and knowledgeable personal AI Chef assistant inside the "Savr" app.
       
       CURRENT CONTEXT:
       - Date & Time: ${new Date().toLocaleString()}
@@ -287,7 +287,8 @@ export const chatWithChef = async (
       IMPORTANT RULES:
       1. **ALWAYS** provide a text response confirming your action *before* or *while* using a tool. Do not just execute the tool silently.
       2. **Trust the CURRENT APP STATE** listed above over any previous conversation history. If the history says eggs were added but the Current Pantry Inventory above is empty, then the eggs were deleted. The Current App State is live.
-      3. Keep responses concise (under 50 words) unless explaining a recipe or answering a complex question.
+      3. **USE TOOLS**: When the user asks to add items, you MUST call the \`add_pantry_item\` function. Do not just say "I added it". If no quantity is specified, omit the quantity field.
+      5. **CHAINING TOOLS**: If the user says "I have chicken, what can I make?", you must FIRST call \`add_pantry_item\` for the chicken, AND THEN call \`generate_recipes\` in the same turn. Don't wait for user confirmation.
     `;
 
     // Filter and format history to prevent empty text errors

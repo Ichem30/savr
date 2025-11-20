@@ -94,9 +94,12 @@ export const Profile: React.FC<ProfileProps> = ({ user, onSave }) => {
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold text-gray-800">Your Profile</h2>
+        </div>
+        
+        <div className="flex justify-start mb-4">
             <button 
                 onClick={() => logOut()} 
-                className="text-xs text-red-400 hover:text-red-600 flex items-center gap-1 px-3 py-1 rounded-full hover:bg-red-50 transition-colors"
+                className="text-xs text-red-400 hover:text-red-600 flex items-center gap-1 px-3 py-1 rounded-full border border-red-100 hover:bg-red-50 transition-colors"
             >
                 <Icons.LogOut size={12} /> Log Out
             </button>
@@ -297,7 +300,7 @@ export const Profile: React.FC<ProfileProps> = ({ user, onSave }) => {
 
       {/* Floating Save Button */}
       {hasChanges && (
-          <div className="absolute bottom-24 left-0 w-full px-6 z-20 animate-fade-in-up">
+          <div className="absolute bottom-0 left-0 w-full px-6 pb-6 pt-6 bg-gradient-to-t from-gray-50 via-gray-50 to-transparent z-20 animate-fade-in-up">
               <button 
                 onClick={handleSave}
                 disabled={isSaving}

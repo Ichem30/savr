@@ -136,8 +136,9 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({
           switch (call.name) {
             case 'add_pantry_item':
               if (args.item_name) {
-                onAddIngredient(args.item_name, args.quantity);
-                toolResponseText = `[Added ${args.item_name}${args.quantity ? ' ('+args.quantity+')' : ''}]`;
+                const qty = args.quantity || "1";
+                onAddIngredient(args.item_name, qty);
+                toolResponseText = `[Added ${args.item_name}${qty !== "1" ? ' ('+qty+')' : ''}]`;
               }
               break;
             case 'remove_pantry_item':
@@ -180,10 +181,8 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({
               break;
           }
 
-          // If the model didn't provide a text explanation (it should, per prompt), 
-          // or just to confirm the system action in the log:
-          // Only add this if the response text was empty, OR if we want a system log style
-          if (!response.text && toolResponseText) {
+          // ALWAYS display the tool response text for visibility
+          if (toolResponseText) {
              setMessages(prev => [...prev, { role: 'model', text: toolResponseText, isFunctionCall: true }]);
           }
         }
@@ -203,15 +202,15 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({
       {!isOpen && (
         <button 
           onClick={() => setIsOpen(true)}
-          className="absolute bottom-24 right-6 w-14 h-14 bg-primary text-white rounded-full shadow-xl shadow-primary/30 flex items-center justify-center z-50 hover:scale-110 transition-transform animate-bounce-slow border-4 border-white"
+          className="absolute top-6 right-6 w-10 h-10 bg-primary text-white rounded-full shadow-lg flex items-center justify-center z-50 hover:scale-110 transition-transform border border-white/20"
         >
-          <Icons.Bot size={28} />
+          <Icons.Bot size={20} />
         </button>
       )}
 
       {/* Open State - Chat Window */}
       {isOpen && (
-        <div className="absolute bottom-24 right-4 left-4 md:left-auto md:w-80 h-[450px] bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl flex flex-col border border-white/50 z-50 overflow-hidden animate-fade-in-up">
+        <div className="absolute top-20 right-4 left-4 md:left-auto md:w-80 h-[450px] bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl flex flex-col border border-white/50 z-50 overflow-hidden animate-fade-in-up">
           {/* Header */}
           <div className="bg-primary/10 p-4 flex items-center justify-between border-b border-primary/5">
             <div className="flex items-center gap-3">
