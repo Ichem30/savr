@@ -31,6 +31,7 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({
   const [messages, setMessages] = useState<ChatMessage[]>([
     { role: 'model', text: "Hi! I'm Chef Remy. How can I help you today?" }
   ]);
+  const [showTooltip, setShowTooltip] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
 
@@ -38,7 +39,16 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({
     if (isOpen && messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
+    if (isOpen) {
+        setShowTooltip(false);
+    }
   }, [messages, isOpen]);
+
+  // Show tooltip after a few seconds on mount
+  useEffect(() => {
+      const timer = setTimeout(() => setShowTooltip(true), 3000);
+      return () => clearTimeout(timer);
+  }, []);
 
   // Cleanup speech recognition on unmount
   useEffect(() => {
@@ -200,12 +210,20 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({
     <>
       {/* Closed State - Floating Button */}
       {!isOpen && (
-        <button 
-          onClick={() => setIsOpen(true)}
-          className="absolute top-6 right-6 w-10 h-10 bg-primary text-white rounded-full shadow-lg flex items-center justify-center z-50 hover:scale-110 transition-transform border border-white/20"
-        >
-          <Icons.Bot size={20} />
-        </button>
+        <div className="absolute top-6 right-6 z-50 flex items-center gap-3">
+            {showTooltip && (
+                <div className="bg-primary px-3 py-1.5 rounded-xl shadow-lg animate-fade-in-right flex items-center gap-2 relative">
+                    <span className="text-xs font-bold text-white whitespace-nowrap">Ask Chef Remy!</span>
+                    <div className="absolute -right-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-primary rotate-45"></div>
+                </div>
+            )}
+            <button 
+            onClick={() => setIsOpen(true)}
+            className="w-10 h-10 bg-primary text-white rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform border border-white/20 animate-bounce-slow"
+            >
+            <Icons.Bot size={20} />
+            </button>
+        </div>
       )}
 
       {/* Open State - Chat Window */}

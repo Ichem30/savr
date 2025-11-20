@@ -228,7 +228,7 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
         )}
 
         <div className="flex gap-2">
-          <div className="flex-[2] flex bg-gray-100 border-0 rounded-xl px-4 py-3 focus-within:ring-2 focus-within:ring-primary transition-all">
+          <div className="flex-1 flex bg-gray-100 border-0 rounded-xl px-4 py-3 focus-within:ring-2 focus-within:ring-primary transition-all min-w-0">
              <input 
                 type="text"
                 value={input}
@@ -237,19 +237,19 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
                 placeholder="e.g. Stale bread..."
                 className="flex-1 bg-transparent border-none outline-none text-gray-700 placeholder-gray-400 min-w-0"
             />
-            <button onClick={() => setIsScanning(true)} className="ml-2 text-gray-400 hover:text-primary transition-colors flex items-center justify-center border-l border-gray-300 pl-3"><Icons.ScanBarcode size={20} /></button>
+            <button onClick={() => setIsScanning(true)} className="ml-2 text-gray-400 hover:text-primary transition-colors flex items-center justify-center border-l border-gray-300 pl-3 shrink-0"><Icons.ScanBarcode size={20} /></button>
           </div>
-          <div className="flex-1 min-w-[80px] bg-white border border-gray-200 rounded-xl px-3 py-3 focus-within:ring-2 focus-within:ring-primary transition-all mr-2 shadow-sm">
+          <div className="w-20 bg-white border border-gray-200 rounded-xl px-2 py-3 focus-within:ring-2 focus-within:ring-primary transition-all shadow-sm shrink-0">
              <input 
                 type="text"
                 value={quantityInput}
                 onChange={e => setQuantityInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && addIngredient()}
                 placeholder="Qty"
-                className="w-full bg-transparent border-none outline-none text-gray-700 placeholder-gray-400 text-center min-w-0"
+                className="w-full bg-transparent border-none outline-none text-gray-700 placeholder-gray-400 text-center"
             />
           </div>
-          <button onClick={() => addIngredient()} className="bg-primary text-white rounded-xl w-12 flex items-center justify-center shadow-lg shadow-primary/20 active:scale-95 transition-all"><Icons.Plus size={24} /></button>
+          <button onClick={() => addIngredient()} className="bg-primary text-white rounded-xl w-12 flex items-center justify-center shadow-lg shadow-primary/20 active:scale-95 transition-all shrink-0"><Icons.Plus size={24} /></button>
         </div>
       </div>
 
