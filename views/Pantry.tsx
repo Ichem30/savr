@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Ingredient } from '../types';
 import { Icons } from '../components/Icons';
 import { Html5Qrcode } from "html5-qrcode";
+import { IngredientContextMenu } from '../components/IngredientContextMenu';
+import { ModernSelect } from '../components/ModernSelect';
 
 interface PantryProps {
   pantry: Ingredient[];
@@ -148,8 +150,15 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
     setQuantityInput('');
   };
 
-  const removeIngredient = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleEdit = (item: Ingredient) => {
+      setInput(item.name);
+      setQuantityInput(item.quantity || '');
+      // Optionally focus the input
+      // document.getElementById('ingredient-input')?.focus(); 
+  };
+
+  const removeIngredient = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     onRemove(id);
   };
 
@@ -288,15 +297,22 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
                                 {scannedItems.map(item => {
                                     const isSelected = item.isSelected !== false;
                                     return (
-                                        <div key={item.id} onClick={() => toggleIngredient(item)} className={`p-3 rounded-2xl flex items-center gap-3 shadow-sm cursor-pointer transition-all border ${isSelected ? 'bg-white border-primary ring-1 ring-primary/20' : 'bg-gray-50 border-transparent opacity-60'}`}>
-                                            {item.image ? <img src={item.image} alt={item.name} className="w-12 h-12 rounded-lg object-cover bg-gray-100" /> : <div className="w-12 h-12 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-500"><Icons.ShoppingBag size={20} /></div>}
-                                            <div className="flex-1 min-w-0">
-                                                <p className="font-bold text-gray-800 truncate text-sm">{item.name}{item.quantity && <span className="font-normal text-gray-500 ml-2 text-xs">({item.quantity})</span>}</p>
-                                                {item.brand && <p className="text-xs text-gray-500 truncate">{item.brand}</p>}
-                                                {item.nutrition?.calories && <div className="flex items-center gap-2 mt-1 text-[10px] font-medium text-gray-400"><span className="text-orange-500">{Math.round(item.nutrition.calories)} kcal</span><span>•</span><span className="text-blue-500">{Math.round(item.nutrition.protein || 0)}g Pro</span></div>}
+                                        <IngredientContextMenu 
+                                            key={item.id} 
+                                            itemName={item.name}
+                                            onEdit={() => handleEdit(item)}
+                                            onDelete={() => removeIngredient(item.id)}
+                                        >
+                                            <div onClick={() => toggleIngredient(item)} className={`p-3 rounded-2xl flex items-center gap-3 shadow-sm cursor-pointer transition-all border ${isSelected ? 'bg-white border-primary ring-1 ring-primary/20' : 'bg-gray-50 border-transparent opacity-60'}`}>
+                                                {item.image ? <img src={item.image} alt={item.name} className="w-12 h-12 rounded-lg object-cover bg-gray-100" /> : <div className="w-12 h-12 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-500"><Icons.ShoppingBag size={20} /></div>}
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="font-bold text-gray-800 truncate text-sm">{item.name}{item.quantity && <span className="font-normal text-gray-500 ml-2 text-xs">({item.quantity})</span>}</p>
+                                                    {item.brand && <p className="text-xs text-gray-500 truncate">{item.brand}</p>}
+                                                    {item.nutrition?.calories && <div className="flex items-center gap-2 mt-1 text-[10px] font-medium text-gray-400"><span className="text-orange-500">{Math.round(item.nutrition.calories)} kcal</span><span>•</span><span className="text-blue-500">{Math.round(item.nutrition.protein || 0)}g Pro</span></div>}
+                                                </div>
+                                                <button onClick={(e) => removeIngredient(item.id, e)} className={`p-2 rounded-full transition-colors ${isSelected ? 'hover:bg-gray-100 text-gray-400' : 'hover:bg-gray-200 text-gray-500'}`}><Icons.X size={16} /></button>
                                             </div>
-                                            <button onClick={(e) => removeIngredient(item.id, e)} className={`p-2 rounded-full transition-colors ${isSelected ? 'hover:bg-gray-100 text-gray-400' : 'hover:bg-gray-200 text-gray-500'}`}><Icons.X size={16} /></button>
-                                        </div>
+                                        </IngredientContextMenu>
                                     )
                                 })}
                             </div>
@@ -310,11 +326,18 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
                                 {manualItems.map(item => {
                                 const isSelected = item.isSelected !== false;
                                 return (
-                                    <div key={item.id} onClick={() => toggleIngredient(item)} className={`pl-3 pr-1 py-1.5 rounded-full flex items-center gap-2 shadow-sm cursor-pointer transition-all border ${isSelected ? 'bg-emerald-50 border-primary text-emerald-800 ring-1 ring-primary' : 'bg-gray-100 border-transparent text-gray-400 opacity-60 hover:opacity-80'}`}>
-                                        <span className="font-medium text-sm select-none capitalize">{item.name}</span>
-                                        {item.quantity && <span className="text-[10px] text-gray-500 bg-white/80 px-1.5 py-0.5 rounded ml-1 border border-gray-200 font-normal">{item.quantity}</span>}
-                                        <button onClick={(e) => removeIngredient(item.id, e)} className={`p-1 rounded-full transition-colors ${isSelected ? 'hover:bg-emerald-100 text-emerald-600' : 'hover:bg-gray-200 text-gray-500'}`}><Icons.X size={14} /></button>
-                                    </div>
+                                    <IngredientContextMenu
+                                        key={item.id}
+                                        itemName={item.name}
+                                        onEdit={() => handleEdit(item)}
+                                        onDelete={() => removeIngredient(item.id)}
+                                    >
+                                        <div onClick={() => toggleIngredient(item)} className={`pl-3 pr-1 py-1.5 rounded-full flex items-center gap-2 shadow-sm cursor-pointer transition-all border ${isSelected ? 'bg-emerald-50 border-primary text-emerald-800 ring-1 ring-primary' : 'bg-gray-100 border-transparent text-gray-400 opacity-60 hover:opacity-80'}`}>
+                                            <span className="font-medium text-sm select-none capitalize">{item.name}</span>
+                                            {item.quantity && <span className="text-[10px] text-gray-500 bg-white/80 px-1.5 py-0.5 rounded ml-1 border border-gray-200 font-normal">{item.quantity}</span>}
+                                            <button onClick={(e) => removeIngredient(item.id, e)} className={`p-1 rounded-full transition-colors ${isSelected ? 'hover:bg-emerald-100 text-emerald-600' : 'hover:bg-gray-200 text-gray-500'}`}><Icons.X size={14} /></button>
+                                        </div>
+                                    </IngredientContextMenu>
                                 )})}
                             </div>
                         </div>
@@ -329,39 +352,42 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
         <div className="absolute bottom-0 left-0 w-full px-6 pb-4 pt-6 space-y-3 bg-gradient-to-t from-gray-50 via-gray-50 to-transparent z-20">
             {/* Preference Pills */}
             <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar mask-fade-right">
-                <select 
-                    value={selectedMeal || ""} 
-                    onChange={(e) => setSelectedMeal(e.target.value || undefined)}
-                    className="appearance-none bg-white border border-gray-200 text-gray-700 text-xs font-bold py-2 px-4 rounded-full shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                >
-                    <option value="">Any Meal</option>
-                    <option value="Breakfast">Breakfast</option>
-                    <option value="Lunch">Lunch</option>
-                    <option value="Dinner">Dinner</option>
-                    <option value="Snack">Snack</option>
-                </select>
+                <ModernSelect
+                    value={selectedMeal}
+                    onChange={(val) => setSelectedMeal(val || undefined)}
+                    placeholder="Any Meal"
+                    options={[
+                        { value: "", label: "Any Meal" },
+                        { value: "Breakfast", label: "Breakfast" },
+                        { value: "Lunch", label: "Lunch" },
+                        { value: "Dinner", label: "Dinner" },
+                        { value: "Snack", label: "Snack" }
+                    ]}
+                />
 
-                <select 
-                    value={selectedTime || ""} 
-                    onChange={(e) => setSelectedTime(e.target.value || undefined)}
-                    className="appearance-none bg-white border border-gray-200 text-gray-700 text-xs font-bold py-2 px-4 rounded-full shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                >
-                    <option value="">Any Time</option>
-                    <option value="15 min">15 min</option>
-                    <option value="30 min">30 min</option>
-                    <option value="60 min">60 min</option>
-                </select>
+                <ModernSelect
+                    value={selectedTime}
+                    onChange={(val) => setSelectedTime(val || undefined)}
+                    placeholder="Any Time"
+                    options={[
+                        { value: "", label: "Any Time" },
+                        { value: "15 min", label: "15 min" },
+                        { value: "30 min", label: "30 min" },
+                        { value: "60 min", label: "60 min" }
+                    ]}
+                />
 
-                <select 
-                    value={selectedSkill || ""} 
-                    onChange={(e) => setSelectedSkill(e.target.value || undefined)}
-                    className="appearance-none bg-white border border-gray-200 text-gray-700 text-xs font-bold py-2 px-4 rounded-full shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                >
-                    <option value="">Any Level</option>
-                    <option value="Beginner">Beginner</option>
-                    <option value="Intermediate">Intermediate</option>
-                    <option value="Advanced">Pro</option>
-                </select>
+                <ModernSelect
+                    value={selectedSkill}
+                    onChange={(val) => setSelectedSkill(val || undefined)}
+                    placeholder="Any Level"
+                    options={[
+                        { value: "", label: "Any Level" },
+                        { value: "Beginner", label: "Beginner" },
+                        { value: "Intermediate", label: "Intermediate" },
+                        { value: "Advanced", label: "Pro" }
+                    ]}
+                />
             </div>
 
             <div onClick={() => setStrictMode(!strictMode)} className="bg-white/90 backdrop-blur p-3 rounded-xl flex items-center justify-between cursor-pointer border border-gray-200 shadow-sm hover:border-primary/30 transition-colors">

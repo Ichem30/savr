@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { UserProfile, FitnessGoal, Gender } from '../types';
 import { Icons } from '../components/Icons';
 import { auth, signInGoogle, logOut } from '../services/firebase';
+import { ModernSelect } from '../components/ModernSelect';
 
 interface ProfileProps {
   user: UserProfile;
@@ -138,28 +139,22 @@ export const Profile: React.FC<ProfileProps> = ({ user, onSave }) => {
             </div>
 
             {/* Goal Selector */}
-            <div className="bg-gray-50 rounded-2xl p-4 mb-6 relative border border-gray-100">
+            <div className="bg-gray-50 rounded-2xl p-4 mb-6 border border-gray-100">
                 <div className="flex items-center gap-3">
                     <div className="p-2 bg-white rounded-full shadow-sm text-primary">
                         <CurrentGoalIcon size={20} />
                     </div>
                     <div className="flex-1">
-                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Current Goal</label>
-                        <div className="font-bold text-gray-800 capitalize flex items-center gap-2">
-                            {GOAL_OPTIONS.find(g => g.value === formData.goal)?.label}
-                            <Icons.ChevronRight size={14} className="text-gray-400" />
-                        </div>
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Current Goal</label>
+                        <ModernSelect 
+                            value={formData.goal}
+                            onChange={(val) => handleChange('goal', val)}
+                            placeholder="Select Goal"
+                            className="w-full justify-between bg-transparent border-none shadow-none p-0 text-base hover:bg-transparent"
+                            options={GOAL_OPTIONS.map(g => ({ value: g.value, label: g.label, icon: g.icon }))}
+                        />
                     </div>
                 </div>
-                <select 
-                    value={formData.goal}
-                    onChange={e => handleChange('goal', e.target.value)}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                >
-                    {GOAL_OPTIONS.map(opt => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                </select>
             </div>
 
             {/* Stats Grid */}
@@ -207,21 +202,19 @@ export const Profile: React.FC<ProfileProps> = ({ user, onSave }) => {
                 </div>
                 
                 {/* Sex */}
-                <div className="p-3 bg-gray-50 rounded-2xl border border-gray-100 text-center group hover:border-primary/30 transition-colors relative">
+                <div className="p-3 bg-gray-50 rounded-2xl border border-gray-100 text-center group hover:border-primary/30 transition-colors relative flex flex-col items-center">
                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Sex</label>
-                     <div className="flex items-center justify-center gap-1">
-                        <span className="font-bold text-gray-800 capitalize">{formData.gender}</span>
-                        <Icons.ChevronRight size={12} className="text-gray-400" />
-                    </div>
-                    <select 
+                     <ModernSelect 
                         value={formData.gender}
-                        onChange={e => handleChange('gender', e.target.value)}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    >
-                        <option value="male">Male</option>
-                        <option value="female">Female</option>
-                        <option value="other">Other</option>
-                    </select>
+                        onChange={(val) => handleChange('gender', val)}
+                        placeholder="Sex"
+                        className="bg-transparent border-none shadow-none p-0 justify-center hover:bg-transparent font-bold text-gray-800"
+                        options={[
+                            { value: "male", label: "Male" },
+                            { value: "female", label: "Female" },
+                            { value: "other", label: "Other" }
+                        ]}
+                    />
                 </div>
             </div>
         </div>

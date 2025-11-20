@@ -1,6 +1,7 @@
 import React from 'react';
 import { Recipe } from '../types';
 import { Icons } from '../components/Icons';
+import { RecipeContextMenu } from '../components/RecipeContextMenu';
 
 interface RecipeFeedProps {
   recipes: Recipe[];
@@ -33,37 +34,42 @@ export const RecipeFeed: React.FC<RecipeFeedProps> = ({ recipes, loading, onSele
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
         {recipes.map(recipe => (
-          <div 
-            key={recipe.id}
-            onClick={() => onSelectRecipe(recipe)}
-            className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 active:bg-gray-50 cursor-pointer transition-all"
+          <RecipeContextMenu 
+            key={recipe.id} 
+            recipeTitle={recipe.title}
+            onViewDetails={() => onSelectRecipe(recipe)}
           >
-            <div className="flex justify-between items-start mb-2">
-              <h3 className="font-bold text-lg text-gray-800 leading-tight flex-1 mr-2">{recipe.title}</h3>
-               <div className={`text-xs font-bold px-2 py-1 rounded-full whitespace-nowrap ${
-                   recipe.matchPercentage > 80 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-               }`}>
-                {recipe.matchPercentage}% Match
-              </div>
-            </div>
-            
-            <p className="text-gray-500 text-sm line-clamp-2 mb-4">{recipe.description}</p>
+            <div 
+                onClick={() => onSelectRecipe(recipe)}
+                className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 active:bg-gray-50 cursor-pointer transition-all"
+            >
+                <div className="flex justify-between items-start mb-2">
+                <h3 className="font-bold text-lg text-gray-800 leading-tight flex-1 mr-2">{recipe.title}</h3>
+                <div className={`text-xs font-bold px-2 py-1 rounded-full whitespace-nowrap ${
+                    recipe.matchPercentage > 80 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                }`}>
+                    {recipe.matchPercentage}% Match
+                </div>
+                </div>
+                
+                <p className="text-gray-500 text-sm line-clamp-2 mb-4">{recipe.description}</p>
 
-            <div className="flex items-center justify-between text-xs text-gray-400">
-                <div className="flex items-center gap-1">
-                    <Icons.Clock size={14} />
-                    <span>{recipe.prepTime}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                    <Icons.Flame size={14} />
-                    <span>{recipe.calories} kcal</span>
-                </div>
-                <div className="flex items-center gap-1 text-primary font-medium">
-                    <Icons.Leaf size={14} />
-                    <span>{recipe.macros.protein} Pro</span>
+                <div className="flex items-center justify-between text-xs text-gray-400">
+                    <div className="flex items-center gap-1">
+                        <Icons.Clock size={14} />
+                        <span>{recipe.prepTime}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <Icons.Flame size={14} />
+                        <span>{recipe.calories} kcal</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-primary font-medium">
+                        <Icons.Leaf size={14} />
+                        <span>{recipe.macros.protein} Pro</span>
+                    </div>
                 </div>
             </div>
-          </div>
+          </RecipeContextMenu>
         ))}
       </div>
     </div>

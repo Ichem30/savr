@@ -16,6 +16,7 @@ import {
   PlayCircle, 
   ChevronRight, 
   ChevronLeft, 
+  ChevronDown,
   Refrigerator, 
   X, 
   Scale, 
@@ -33,7 +34,9 @@ import {
   Mic, 
   LogOut, 
   LogIn,
-  Phone
+  Phone,
+  Edit2,
+  Eye
 } from 'lucide-react';
 
 export const Icons = {
@@ -42,6 +45,8 @@ export const Icons = {
   User,
   Plus,
   Trash2,
+  Trash: Trash2, // Alias for Trash
+  Edit: Edit2,   // Alias for Edit
   ArrowLeft,
   Check,
   Flame,
@@ -55,6 +60,7 @@ export const Icons = {
   Prev: ChevronLeft,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
   Refrigerator,
   X,
   Scale,
@@ -72,5 +78,6 @@ export const Icons = {
   Mic,
   LogOut,
   LogIn,
-  Phone
+  Phone,
+  Eye
 };
