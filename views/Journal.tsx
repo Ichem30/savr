@@ -6,6 +6,7 @@ import { calculateDailyTargets } from '../utils/nutrition';
 import { subscribeToDailyLog, addMealToLog, deleteMealFromLog, updateMealInLog, updateWaterLog, auth } from '../services/firebase';
 import { MealDetailModal } from '../components/MealDetailModal';
 import { CalendarModal } from '../components/CalendarModal';
+import { DailySummaryModal } from '../components/DailySummaryModal';
 
 interface JournalProps {
   user: UserProfile | null;
@@ -26,6 +27,7 @@ export const Journal: React.FC<JournalProps> = ({ user, savedRecipes = [], onNav
   const [logData, setLogData] = useState<DailyLog | null>(null);
   const [openedMealType, setOpenedMealType] = useState<string | null>(null);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
 
   // Derived Targets
   const targets = user ? calculateDailyTargets(user) : { calories: 2000, protein: 150, carbs: 200, fats: 65, water: 2500 };
@@ -46,8 +48,29 @@ export const Journal: React.FC<JournalProps> = ({ user, savedRecipes = [], onNav
   const remaining = targets.calories - consumed + burned;
   const progress = Math.min(100, (consumed / targets.calories) * 100);
   
-  // Streak
-  const streak = user?.streak?.current || 0;
+  // Streak Logic
+  // We need to determine if the streak is active or broken.
+  // Active = lastLogDate is today or yesterday.
+  // Broken = lastLogDate is before yesterday.
+  let displayStreak = 0;
+  let isStreakActive = false;
+
+  if (user?.streak) {
+      const { current, lastLogDate } = user.streak;
+      const today = new Date().toISOString().split('T')[0];
+      
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().split('T')[0];
+      
+      if (lastLogDate === today || lastLogDate === yesterdayStr) {
+          displayStreak = current;
+          isStreakActive = true;
+      } else {
+          displayStreak = 0; // Streak is broken
+          isStreakActive = false;
+      }
+  }
 
   // Handlers
   const changeDate = (offset: number) => {
@@ -105,11 +128,11 @@ export const Journal: React.FC<JournalProps> = ({ user, savedRecipes = [], onNav
                 <div className="flex flex-col items-center">
                     <Icons.Flame 
                         size={20} 
-                        className={`mb-0.5 transition-colors ${streak > 0 ? 'text-orange-500' : 'text-gray-300'}`} 
-                        fill={streak > 0 ? "currentColor" : "none"} 
+                        className={`mb-0.5 transition-colors ${isStreakActive && displayStreak > 0 ? 'text-orange-500' : 'text-gray-300'}`} 
+                        fill={isStreakActive && displayStreak > 0 ? "currentColor" : "none"} 
                     />
-                    <span className={`text-xs font-bold ${streak > 0 ? 'text-orange-600' : 'text-gray-400'}`}>
-                        {streak}
+                    <span className={`text-xs font-bold ${isStreakActive && displayStreak > 0 ? 'text-orange-600' : 'text-gray-400'}`}>
+                        {displayStreak}
                     </span>
                 </div>
             </div>
@@ -119,9 +142,13 @@ export const Journal: React.FC<JournalProps> = ({ user, savedRecipes = [], onNav
         <div className="flex-1 overflow-y-auto p-4 pb-32 no-scrollbar">
             
             {/* Summary Card */}
-            <div className="bg-white rounded-3xl p-6 mb-6 shadow-sm border border-gray-100 relative overflow-hidden">
+            <div 
+                onClick={() => setShowSummary(true)}
+                className="bg-white rounded-3xl p-6 mb-6 shadow-sm border border-gray-100 relative overflow-hidden cursor-pointer hover:border-primary/30 transition-all active:scale-[0.99]"
+            >
                 <div className="flex justify-between items-start mb-6">
                     <h2 className="font-bold text-gray-800 text-lg">Résumé</h2>
+                    <Icons.ChevronRight className="text-gray-300" size={20} />
                 </div>
 
                 <div className="flex flex-col items-center mb-6">
@@ -148,14 +175,10 @@ export const Journal: React.FC<JournalProps> = ({ user, savedRecipes = [], onNav
                         </div>
                     </div>
 
-                    <div className="flex justify-between w-full px-8 mt-4 text-center">
+                    <div className="flex justify-center w-full px-8 mt-4 text-center">
                         <div>
                             <span className="block text-lg font-bold text-gray-700">{consumed}</span>
                             <span className="text-xs text-gray-400 font-medium">Mangées</span>
-                        </div>
-                        <div>
-                            <span className="block text-lg font-bold text-gray-700">{burned}</span>
-                            <span className="text-xs text-gray-400 font-medium">Brûlées</span>
                         </div>
                     </div>
                 </div>
@@ -271,6 +294,17 @@ export const Journal: React.FC<JournalProps> = ({ user, savedRecipes = [], onNav
                     currentDate={currentDate}
                     onSelectDate={(date) => setCurrentDate(date)}
                     onClose={() => setShowCalendar(false)}
+                />
+            )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+            {showSummary && (
+                <DailySummaryModal 
+                    date={currentDate}
+                    logData={logData}
+                    targets={targets}
+                    onClose={() => setShowSummary(false)}
                 />
             )}
         </AnimatePresence>

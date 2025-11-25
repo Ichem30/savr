@@ -48,7 +48,14 @@ import {
   Sunrise,
   Droplet,
   Book,
-  Minus
+  Minus,
+  Zap,
+  Target,
+  Footprints,
+  Cake,
+  Activity,
+  Flag,
+  Calendar
 } from 'lucide-react';
 
 export const Icons = {
@@ -103,5 +110,12 @@ export const Icons = {
   Sunset,
   Sunrise,
   Droplet,
-  Book
+  Book,
+  Zap,
+  Target,
+  Footprints,
+  Cake,
+  Activity,
+  Flag,
+  Calendar
 };

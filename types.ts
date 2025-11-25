@@ -16,6 +16,20 @@ export interface UserProfile {
     current: number;
     lastLogDate: string;
   };
+  customMacros?: {
+    carbs: number;
+    protein: number;
+    fats: number;
+  };
+  mealDistribution?: {
+    breakfast: number;
+    lunch: number;
+    dinner: number;
+    snack: number;
+  };
+  targetWeight?: number;
+  activityLevel?: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
+  weeklyGoal?: number; // kg per week, e.g. -0.5, 0, 0.25
 }
 
 export interface Ingredient {
@@ -61,7 +75,7 @@ export interface ChatMessage {
   isFunctionCall?: boolean;
 }
 
-export type ViewState = 'auth' | 'onboarding' | 'edit-profile' | 'pantry' | 'recipes' | 'recipe-detail' | 'cooking-mode' | 'profile' | 'journal';
+export type ViewState = 'auth' | 'onboarding' | 'edit-profile' | 'pantry' | 'recipes' | 'generated-recipes' | 'recipe-detail' | 'cooking-mode' | 'profile' | 'journal';
 
 export interface MealEntry {
   id: string;

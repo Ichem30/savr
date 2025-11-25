@@ -81,10 +81,42 @@ const RichInstruction = ({ text }: { text: string }) => {
     );
 };
 
+// Helper to scale ingredients
+const scaleIngredient = (ingredient: string, factor: number): string => {
+    if (factor === 1) return ingredient;
+
+    // Regex to find leading numbers (integers, decimals, fractions)
+    // Examples: "2 eggs", "1.5 cups", "1/2 tsp"
+    const regex = /^(\d+(?:[.,]\d+)?|\d+\/\d+)(\s.*)$/;
+    const match = ingredient.match(regex);
+
+    if (match) {
+        const numberPart = match[1];
+        const rest = match[2];
+        let value = 0;
+
+        if (numberPart.includes('/')) {
+            const [num, den] = numberPart.split('/').map(Number);
+            value = num / den;
+        } else {
+            value = parseFloat(numberPart.replace(',', '.'));
+        }
+
+        const newValue = value * factor;
+        
+        // Format nicely: integers if possible, else 1 decimal
+        const formattedValue = Number.isInteger(newValue) ? newValue.toString() : newValue.toFixed(1).replace('.0', '');
+        
+        return `${formattedValue}${rest}`;
+    }
+    return ingredient;
+};
+
 export const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onBack, isSaved, onToggleSave }) => {
   const [cookingMode, setCookingMode] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [showIngredients, setShowIngredients] = useState(false);
+  const [portions, setPortions] = useState(1);
 
   const handleAddToJournal = async () => {
       if (!auth.currentUser) return;
@@ -104,12 +136,17 @@ export const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onBack, isSa
           await addMealToLog(auth.currentUser.uid, dateStr, {
               id: Date.now().toString(),
               name: recipe.title,
-              calories: recipe.calories,
+              calories: Math.round(recipe.calories * portions),
               type: mealType,
-              recipeId: recipe.id
+              recipeId: recipe.id,
+              portions: portions,
+              macros: {
+                  protein: Math.round(parseInt(recipe.macros.protein) * portions),
+                  carbs: Math.round(parseInt(recipe.macros.carbs) * portions),
+                  fats: Math.round(parseInt(recipe.macros.fats) * portions),
+              }
           });
-          // Simple feedback visual could be better but alert works for functional requirement
-          alert(`Recette ajoutée au ${mealLabel} !`);
+          alert(`Recette (${portions} portions) ajoutée au ${mealLabel} !`);
       } catch (e) {
           console.error(e);
       }
@@ -234,7 +271,7 @@ export const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onBack, isSa
           </motion.button>
         </div>
 
-        {/* Ingredients Drawer (Overlay) */}
+        {/* Ingredients Drawer (Overlay) - Scaled */}
         <AnimatePresence>
             {showIngredients && (
                 <>
@@ -250,7 +287,7 @@ export const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onBack, isSa
                     >
                         <div className="p-4 border-b border-gray-700 flex justify-between items-center">
                             <h3 className="font-bold text-white flex items-center gap-2">
-                                <Icons.ShoppingBag className="text-primary" size={20} /> Ingredients
+                                <Icons.ShoppingBag className="text-primary" size={20} /> Ingredients ({portions} pers.)
                             </h3>
                             <button onClick={() => setShowIngredients(false)} className="p-2 hover:bg-gray-700 rounded-full text-gray-400">
                                 <Icons.ChevronDown size={20} />
@@ -260,7 +297,7 @@ export const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onBack, isSa
                             {recipe.ingredients.map((ing, i) => (
                                 <div key={i} className="flex items-start gap-3 text-gray-300 p-3 bg-gray-700/30 rounded-xl border border-gray-700/50">
                                     <div className="mt-1.5 w-1.5 h-1.5 bg-primary rounded-full shrink-0" />
-                                    <span className="leading-relaxed font-medium">{ing}</span>
+                                    <span className="leading-relaxed font-medium">{scaleIngredient(ing, portions)}</span>
                                 </div>
                             ))}
                         </div>
@@ -272,6 +309,7 @@ export const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onBack, isSa
     );
   }
 
+  // --- DETAIL VIEW ---
   return (
     <div className="h-full flex flex-col bg-white overflow-y-auto no-scrollbar relative">
       {/* Header */}
@@ -318,27 +356,50 @@ export const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onBack, isSa
              ))}
         </div>
 
-        {/* Macros Grid */}
+        {/* Portion Control */}
+        <div className="flex justify-center mb-6">
+            <div className="bg-gray-50 rounded-2xl p-1 flex items-center gap-4 border border-gray-100 shadow-sm">
+                <button 
+                    onClick={() => setPortions(Math.max(1, portions - 1))}
+                    className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-gray-500 hover:text-primary shadow-sm border border-gray-100 disabled:opacity-50"
+                    disabled={portions <= 1}
+                >
+                    <Icons.Minus size={18} />
+                </button>
+                <div className="flex flex-col items-center px-2">
+                    <span className="font-black text-xl text-gray-800 leading-none">{portions}</span>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase">Portions</span>
+                </div>
+                <button 
+                    onClick={() => setPortions(portions + 1)}
+                    className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-gray-500 hover:text-primary shadow-sm border border-gray-100"
+                >
+                    <Icons.Plus size={18} />
+                </button>
+            </div>
+        </div>
+
+        {/* Macros Grid (Scaled) */}
         <div className="grid grid-cols-4 gap-2 mb-8">
             <motion.div whileHover={{ y: -2 }} className="bg-orange-50 p-3 rounded-xl text-center border border-orange-100">
                 <span className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Cals</span>
-                <span className="font-bold text-orange-600 text-sm sm:text-base">{recipe.calories}</span>
+                <span className="font-bold text-orange-600 text-sm sm:text-base">{Math.round(recipe.calories * portions)}</span>
             </motion.div>
             <motion.div whileHover={{ y: -2 }} className="bg-blue-50 p-3 rounded-xl text-center border border-blue-100">
                 <span className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Prot</span>
-                <span className="font-bold text-blue-600 text-sm sm:text-base">{recipe.macros.protein}</span>
+                <span className="font-bold text-blue-600 text-sm sm:text-base">{Math.round(parseInt(recipe.macros.protein) * portions)}g</span>
             </motion.div>
             <motion.div whileHover={{ y: -2 }} className="bg-green-50 p-3 rounded-xl text-center border border-green-100">
                 <span className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Carb</span>
-                <span className="font-bold text-green-600 text-sm sm:text-base">{recipe.macros.carbs}</span>
+                <span className="font-bold text-green-600 text-sm sm:text-base">{Math.round(parseInt(recipe.macros.carbs) * portions)}g</span>
             </motion.div>
             <motion.div whileHover={{ y: -2 }} className="bg-yellow-50 p-3 rounded-xl text-center border border-yellow-100">
                 <span className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Fat</span>
-                <span className="font-bold text-yellow-600 text-sm sm:text-base">{recipe.macros.fats}</span>
+                <span className="font-bold text-yellow-600 text-sm sm:text-base">{Math.round(parseInt(recipe.macros.fats) * portions)}g</span>
             </motion.div>
         </div>
 
-        {/* Ingredients List */}
+        {/* Ingredients List (Scaled) */}
         <div className="mb-8">
           <h3 className="font-bold text-xl mb-4 flex items-center gap-2 text-gray-800">
             <span className="w-1 h-6 bg-primary rounded-full"></span>
@@ -354,7 +415,7 @@ export const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onBack, isSa
                 className="flex items-start gap-3 text-gray-600"
               >
                 <div className="mt-1.5 w-1.5 h-1.5 bg-gray-300 rounded-full shrink-0" />
-                <span className="leading-relaxed">{ing}</span>
+                <span className="leading-relaxed">{scaleIngredient(ing, portions)}</span>
               </motion.li>
             ))}
             {recipe.missingIngredients.length > 0 && (
@@ -363,7 +424,7 @@ export const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onBack, isSa
                     {recipe.missingIngredients.map((ing, i) => (
                          <div key={`missing-${i}`} className="flex items-start gap-3 text-gray-400 mb-2">
                             <div className="mt-1.5 w-1.5 h-1.5 bg-orange-200 rounded-full shrink-0" />
-                            <span className="leading-relaxed italic">{ing}</span>
+                            <span className="leading-relaxed italic">{scaleIngredient(ing, portions)}</span>
                         </div>
                     ))}
                  </li>

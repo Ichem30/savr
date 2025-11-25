@@ -13,6 +13,14 @@ export const calculateBMR = (weight: number, height: number, age: number, gender
   return bmr;
 };
 
+const ACTIVITY_MULTIPLIERS = {
+  'sedentary': 1.2,
+  'light': 1.375,
+  'moderate': 1.55,
+  'active': 1.725,
+  'very_active': 1.9
+};
+
 export const calculateDailyTargets = (user: UserProfile) => {
   if (!user.weight || !user.height || !user.age) {
     return {
@@ -26,28 +34,48 @@ export const calculateDailyTargets = (user: UserProfile) => {
 
   const bmr = calculateBMR(user.weight, user.height, user.age, user.gender);
   
-  // Activity Level (Assuming Sedentary/Light Active for base, simplified)
   // TDEE = Total Daily Energy Expenditure
-  const tdee = bmr * 1.375;
+  const activityMultiplier = ACTIVITY_MULTIPLIERS[user.activityLevel || 'moderate'] || 1.375;
+  const tdee = bmr * activityMultiplier;
 
   let targetCalories = tdee;
 
-  switch (user.goal) {
-    case 'weight_loss':
-      targetCalories -= 500; // Deficit
-      break;
-    case 'muscle_gain':
-      targetCalories += 300; // Surplus
-      break;
-    // maintain is default
+  // Use explicit weekly goal if set, otherwise fallback to goal type presets
+  if (user.weeklyGoal !== undefined) {
+    // 1kg of fat ≈ 7700 kcal
+    // Daily deficit/surplus = (Weekly Goal * 7700) / 7
+    // Example: -0.5 kg/week => (-0.5 * 7700) / 7 = -550 kcal/day
+    const dailyAdjustment = (user.weeklyGoal * 7700) / 7;
+    targetCalories += dailyAdjustment;
+  } else {
+    switch (user.goal) {
+      case 'weight_loss':
+        targetCalories -= 500; // Deficit for ~0.5kg/week
+        break;
+      case 'muscle_gain':
+        targetCalories += 300; // Surplus
+        break;
+      // maintain is default
+    }
   }
+
+  // Ensure safe minimums (1200 for women, 1500 for men roughly, but simpler check here)
+  if (targetCalories < 1200) targetCalories = 1200;
 
   // Macro Split (Balanced: 40% Carbs, 30% Protein, 30% Fat)
   // Protein: 4kcal/g, Carbs: 4kcal/g, Fat: 9kcal/g
   
-  const protein = Math.round((targetCalories * 0.30) / 4);
-  const carbs = Math.round((targetCalories * 0.40) / 4);
-  const fats = Math.round((targetCalories * 0.30) / 9);
+  let protein, carbs, fats;
+
+  if (user.customMacros) {
+    protein = user.customMacros.protein;
+    carbs = user.customMacros.carbs;
+    fats = user.customMacros.fats;
+  } else {
+    protein = Math.round((targetCalories * 0.30) / 4);
+    carbs = Math.round((targetCalories * 0.40) / 4);
+    fats = Math.round((targetCalories * 0.30) / 9);
+  }
 
   // Water: Approx 35ml per kg of bodyweight
   const water = Math.round(user.weight * 35);
@@ -60,4 +88,3 @@ export const calculateDailyTargets = (user: UserProfile) => {
     water
   };
 };
-

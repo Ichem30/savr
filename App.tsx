@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { User } from 'firebase/auth';
 import { UserProfile, Ingredient, Recipe, ViewState } from './types';
@@ -31,6 +30,9 @@ import {
 const App: React.FC = () => {
   // Start in 'auth' view by default
   const [view, setView] = useState<ViewState>('auth');
+  // Track previous view for back navigation logic (especially for RecipeDetail)
+  const [lastView, setLastView] = useState<ViewState>('pantry');
+  
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [pantry, setPantry] = useState<Ingredient[]>([]);
@@ -152,7 +154,7 @@ const App: React.FC = () => {
     }
 
     setLoading(true);
-    setView('recipes');
+    setView('generated-recipes');
     try {
       const recipes = await generateRecipes(userProfile, selectedIngredients, strictMode, options);
       setGeneratedRecipes(recipes);
@@ -166,6 +168,7 @@ const App: React.FC = () => {
   };
 
   const handleRecipeSelect = (recipe: Recipe) => {
+    setLastView(view);
     setSelectedRecipe(recipe);
     setView('recipe-detail');
   };
@@ -319,7 +322,11 @@ const App: React.FC = () => {
                         whileHover={{ scale: 1.05, y: -2 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => {
-                            if (generatedRecipes.length > 0) setView('recipes');
+                            // Logic for Floating Button:
+                            // If there are generated recipes, go to 'generated-recipes'.
+                            // Else if pantry has items, generate.
+                            // Else go to pantry.
+                            if (generatedRecipes.length > 0) setView('generated-recipes');
                             else if (pantry.length > 0) handleGenerateRecipes();
                             else setView('pantry');
                         }} 
@@ -410,13 +417,27 @@ const App: React.FC = () => {
             {view === 'recipes' && (
               <PageTransition key="recipes">
                 <RecipeFeed 
-                  recipes={generatedRecipes.length > 0 ? generatedRecipes : savedRecipes} 
+                  recipes={savedRecipes} 
                   loading={loading} 
                   onSelectRecipe={handleRecipeSelect}
                   onBack={() => setView('pantry')}
                   savedRecipeTitles={savedRecipes.map(r => r.title)}
                   onToggleSave={handleToggleSaveRecipe}
-                  title={generatedRecipes.length > 0 ? "Suggested Recipes" : "My Cookbook"}
+                  title="Mes recettes"
+                />
+              </PageTransition>
+            )}
+
+            {view === 'generated-recipes' && (
+              <PageTransition key="generated-recipes">
+                <RecipeFeed 
+                  recipes={generatedRecipes} 
+                  loading={loading} 
+                  onSelectRecipe={handleRecipeSelect}
+                  onBack={() => setView('pantry')}
+                  savedRecipeTitles={savedRecipes.map(r => r.title)}
+                  onToggleSave={handleToggleSaveRecipe}
+                  title="Recettes suggérées"
                 />
               </PageTransition>
             )}
@@ -425,7 +446,7 @@ const App: React.FC = () => {
               <PageTransition key="recipe-detail">
                 <RecipeDetail 
                   recipe={selectedRecipe} 
-                  onBack={() => setView('recipes')} 
+                  onBack={() => setView(lastView)} 
                   isSaved={savedRecipes.some(r => r.title === selectedRecipe.title)}
                   onToggleSave={handleToggleSaveRecipe}
                 />
