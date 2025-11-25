@@ -5,6 +5,7 @@ import { UserProfile, DailyLog, ViewState, Recipe } from '../types';
 import { calculateDailyTargets } from '../utils/nutrition';
 import { subscribeToDailyLog, addMealToLog, deleteMealFromLog, updateMealInLog, updateWaterLog, auth } from '../services/firebase';
 import { MealDetailModal } from '../components/MealDetailModal';
+import { CalendarModal } from '../components/CalendarModal';
 
 interface JournalProps {
   user: UserProfile | null;
@@ -24,6 +25,7 @@ export const Journal: React.FC<JournalProps> = ({ user, savedRecipes = [], onNav
   const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0]);
   const [logData, setLogData] = useState<DailyLog | null>(null);
   const [openedMealType, setOpenedMealType] = useState<string | null>(null);
+  const [showCalendar, setShowCalendar] = useState(false);
 
   // Derived Targets
   const targets = user ? calculateDailyTargets(user) : { calories: 2000, protein: 150, carbs: 200, fats: 65, water: 2500 };
@@ -85,8 +87,8 @@ export const Journal: React.FC<JournalProps> = ({ user, savedRecipes = [], onNav
                 <button onClick={() => changeDate(-1)} className="p-1 hover:bg-gray-100 rounded-full text-gray-400">
                     <Icons.ChevronLeft size={20} />
                 </button>
-                <div className="text-center">
-                    <h1 className="text-lg font-black text-gray-800 leading-none">
+                <div className="text-center cursor-pointer" onClick={() => setShowCalendar(true)}>
+                    <h1 className="text-lg font-black text-gray-800 leading-none hover:text-primary transition-colors">
                         {isToday ? "Aujourd'hui" : currentDate}
                     </h1>
                 </div>
@@ -261,6 +263,16 @@ export const Journal: React.FC<JournalProps> = ({ user, savedRecipes = [], onNav
                 onRemoveMeal={handleRemoveMeal}
             />
         )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+            {showCalendar && (
+                <CalendarModal 
+                    currentDate={currentDate}
+                    onSelectDate={(date) => setCurrentDate(date)}
+                    onClose={() => setShowCalendar(false)}
+                />
+            )}
         </AnimatePresence>
     </div>
   );

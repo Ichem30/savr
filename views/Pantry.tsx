@@ -23,7 +23,7 @@ interface PantryProps {
 export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpdate, onRemove, isScanning, setIsScanning }) => {
   const [input, setInput] = useState('');
   const [quantityInput, setQuantityInput] = useState('');
-  const [showTip, setShowTip] = useState(true);
+  const [unitInput, setUnitInput] = useState<'g' | 'portion'>('g');
   const [strictMode, setStrictMode] = useState(false);
   const [filterQuery, setFilterQuery] = useState('');
   
@@ -114,6 +114,12 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
       }
   };
 
+  const parseServing = (sizeStr?: string) => {
+      if (!sizeStr) return undefined;
+      const num = parseFloat(sizeStr.replace(/[^\d.]/g, '') || '0');
+      return num > 0 ? num : undefined;
+  };
+
   const handleScanSuccess = async (barcode: string) => {
       if (scannerRef.current) {
          try { await scannerRef.current.stop(); scannerRef.current.clear(); } catch (e) {}
@@ -139,6 +145,8 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
                       isScanned: true,
                       brand: product.brands,
                       image: product.image_url,
+                      servingSize: parseServing(product.serving_size),
+                      unit: 'g',
                       nutrition: {
                           calories: product.nutriments?.['energy-kcal_100g'],
                           protein: product.nutriments?.proteins_100g,
@@ -194,11 +202,13 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
             // Try to auto-detect nutrition
             let detectedData = undefined;
             let detectedImage = undefined;
+            let detectedServing = undefined;
 
             if (!forceCustom) {
                 const match = detectNutrition(valueToAdd);
                 if (match) {
                      detectedImage = match.image_url;
+                     detectedServing = parseServing(match.serving_size);
                      detectedData = {
                         calories: match.nutriments['energy-kcal_100g'],
                         protein: match.nutriments['proteins_100g'],
@@ -211,14 +221,12 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
             const newItem: Ingredient = {
                 id: Date.now().toString(),
                 name: valueToAdd,
-                quantity: quantityInput.trim() ? quantityInput.trim() : undefined, // Keep undefined locally if types allow, but ideally clean for firestore
-                // Wait, Interface says quantity?: string. 
-                // Let's assume we need to santize for Firestore in the service or here.
-                // Let's try null if type allows, or just empty string if not.
-                // Actually, better to construct object cleanly.
+                quantity: quantityInput.trim() ? quantityInput.trim() : undefined,
                 isSelected: true,
                 isScanned: !!detectedData,
                 image: detectedImage || undefined,
+                servingSize: detectedServing,
+                unit: unitInput,
                 nutrition: detectedData || undefined
             };
             
@@ -257,6 +265,8 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
               isScanned: true,
               brand: product.brands,
               image: product.image_url,
+              servingSize: parseServing(product.serving_size),
+              unit: 'g',
               nutrition: {
                   calories: product.nutriments?.['energy-kcal_100g'],
                   protein: product.nutriments?.proteins_100g,
@@ -349,28 +359,6 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
         <h2 className="text-2xl font-bold text-gray-800 mb-1">What's in your kitchen?</h2>
         <p className="text-gray-400 text-sm mb-4">Add ingredients or scan barcodes.</p>
         
-        <AnimatePresence>
-        {showTip && (
-            <motion.div 
-                initial={{ opacity: 0, height: 0, marginBottom: 0 }}
-                animate={{ opacity: 1, height: 'auto', marginBottom: 16 }}
-                exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-                className="bg-emerald-50 border border-emerald-100 p-3 rounded-xl flex items-start gap-3 relative overflow-hidden"
-            >
-                <div className="bg-white p-1.5 rounded-full text-primary shadow-sm shrink-0 mt-0.5">
-                    <Icons.Leaf size={16} />
-                </div>
-                <div className="pr-6">
-                    <h4 className="text-sm font-bold text-emerald-800">Save money & reduce waste!</h4>
-                    <p className="text-xs text-emerald-700/80 mt-0.5 leading-relaxed">
-                        Don't toss it! Add leftovers like <span className="font-semibold">"stale bread"</span> or <span className="font-semibold">"wilted spinach"</span>.
-                    </p>
-                </div>
-                <button onClick={() => setShowTip(false)} className="absolute top-2 right-2 text-emerald-400 hover:text-emerald-600 p-1"><Icons.X size={14} /></button>
-            </motion.div>
-        )}
-        </AnimatePresence>
-
         <div className="flex gap-2 relative">
           <div className="flex-1 flex bg-gray-100 border-0 rounded-xl px-4 py-3 focus-within:ring-2 focus-within:ring-primary transition-all min-w-0">
              <input 
@@ -489,35 +477,64 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
 
                     {scannedItems.length > 0 && (
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
-                            <h3 className="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-3 flex items-center gap-2"><Icons.ScanBarcode size={14} /> Identified Products</h3>
-                            <div className="grid grid-cols-1 gap-3">
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="text-xs font-bold text-emerald-600 uppercase tracking-wider flex items-center gap-2"><Icons.ScanBarcode size={14} /> Identified Products</h3>
+                                <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-1 rounded-full">{scannedItems.length} items</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3 pb-2">
                                 {scannedItems.map((item, index) => {
                                     const isSelected = item.isSelected !== false;
                                     return (
                                         <motion.div
                                             key={item.id}
-                                            initial={{ opacity: 0, x: -10 }}
-                                            animate={{ opacity: 1, x: 0 }}
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
                                             transition={{ delay: index * 0.05 }}
+                                            className="h-full"
                                         >
                                             <IngredientContextMenu 
                                                 itemName={item.name}
                                                 onEdit={() => handleEdit(item)}
                                                 onDelete={() => removeIngredient(item.id)}
                                             >
-                                                <div onClick={() => setSelectedForEdit(item)} className={`p-3 rounded-2xl flex items-center gap-3 shadow-sm cursor-pointer transition-all border ${isSelected ? 'bg-white border-primary ring-1 ring-primary/20' : 'bg-gray-50 border-transparent opacity-60'}`}>
-                                                    {item.image ? <img src={item.image} alt={item.name} className="w-12 h-12 rounded-lg object-cover bg-gray-100" /> : <div className="w-12 h-12 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-500"><Icons.ShoppingBag size={20} /></div>}
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="font-bold text-gray-800 truncate text-sm">{item.name}{item.quantity && <span className="font-normal text-gray-500 ml-2 text-xs">({item.quantity})</span>}</p>
-                                                        {item.brand && <p className="text-xs text-gray-500 truncate">{item.brand}</p>}
-                                                        {item.nutrition?.calories && <div className="flex items-center gap-2 mt-1 text-[10px] font-medium text-gray-400"><span className="text-orange-500">{Math.round(item.nutrition.calories)} kcal</span><span>•</span><span className="text-blue-500">{Math.round(item.nutrition.protein || 0)}g Pro</span></div>}
+                                                <div 
+                                                    onClick={() => setSelectedForEdit(item)} 
+                                                    className={`relative h-full p-3 rounded-2xl flex flex-col shadow-sm cursor-pointer transition-all border ${isSelected ? 'bg-white border-primary ring-1 ring-primary/20 shadow-md' : 'bg-white/60 border-gray-100 opacity-80 hover:opacity-100'}`}
+                                                >
+                                                    <div className="absolute top-2 right-2 z-10">
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); toggleIngredient(item); }} 
+                                                            className={`w-6 h-6 rounded-full flex items-center justify-center transition-all shadow-sm ${isSelected ? 'bg-primary text-white' : 'bg-gray-100 text-gray-300 hover:bg-gray-200'}`}
+                                                        >
+                                                            {isSelected && <Icons.Check size={14} strokeWidth={3} />}
+                                                        </button>
                                                     </div>
-                                                    <button 
-                                                        onClick={(e) => { e.stopPropagation(); toggleIngredient(item); }} 
-                                                        className={`w-8 h-8 rounded-full flex items-center justify-center transition-all shrink-0 ${isSelected ? 'bg-primary text-white shadow-md shadow-primary/30' : 'bg-gray-200 text-white hover:bg-gray-300'}`}
-                                                    >
-                                                        {isSelected && <Icons.Check size={16} strokeWidth={3} />}
-                                                    </button>
+                                                    
+                                                    <div className="w-full aspect-square mb-3 rounded-xl overflow-hidden bg-gray-50 flex items-center justify-center">
+                                                        {item.image ? (
+                                                            <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <Icons.ShoppingBag size={32} className="text-emerald-200" />
+                                                        )}
+                                                    </div>
+
+                                                    <div className="flex-1 flex flex-col min-w-0">
+                                                        <h4 className="font-bold text-gray-800 text-sm leading-tight line-clamp-2 mb-1" title={item.name}>{item.name}</h4>
+                                                        {item.brand && <p className="text-[10px] text-gray-400 truncate mb-2">{item.brand}</p>}
+                                                        
+                                                        <div className="mt-auto flex flex-wrap gap-1.5 items-end pt-2 border-t border-gray-50">
+                                                            {item.quantity && (
+                                                                <span className="text-[10px] font-bold bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-md">
+                                                                    {item.quantity}
+                                                                </span>
+                                                            )}
+                                                            {item.nutrition?.calories && (
+                                                                <span className="text-[10px] font-medium text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded-md">
+                                                                    {Math.round(item.nutrition.calories)} kcal
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </IngredientContextMenu>
                                         </motion.div>
@@ -545,12 +562,12 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
                                             onEdit={() => handleEdit(item)}
                                             onDelete={() => removeIngredient(item.id)}
                                         >
-                                            <div onClick={() => setSelectedForEdit(item)} className={`pl-3 pr-1 py-1.5 rounded-full flex items-center gap-2 shadow-sm cursor-pointer transition-all border ${isSelected ? 'bg-emerald-50 border-primary text-emerald-800 ring-1 ring-primary' : 'bg-gray-100 border-transparent text-gray-400 opacity-60 hover:opacity-80'}`}>
-                                                <span className="font-medium text-sm select-none capitalize">{item.name}</span>
-                                                {item.quantity && <span className="text-[10px] text-gray-500 bg-white/80 px-1.5 py-0.5 rounded ml-1 border border-gray-200 font-normal">{item.quantity}</span>}
+                                            <div onClick={() => setSelectedForEdit(item)} className={`pl-3 pr-1 py-1.5 rounded-full flex items-center gap-2 shadow-sm cursor-pointer transition-all border ${isSelected ? 'bg-white border-primary ring-1 ring-primary/20 text-primary' : 'bg-gray-50 border-transparent text-gray-500 hover:bg-gray-100'}`}>
+                                                <span className="font-bold text-sm select-none capitalize">{item.name}</span>
+                                                {item.quantity && <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded ml-1 font-medium">{item.quantity}</span>}
                                                 <button 
                                                     onClick={(e) => { e.stopPropagation(); toggleIngredient(item); }} 
-                                                    className={`w-6 h-6 rounded-full flex items-center justify-center transition-all shrink-0 ml-1 ${isSelected ? 'bg-primary text-white' : 'bg-gray-300 text-white hover:bg-gray-400'}`}
+                                                    className={`w-6 h-6 rounded-full flex items-center justify-center transition-all shrink-0 ml-1 ${isSelected ? 'bg-primary text-white shadow-sm' : 'bg-gray-200 text-white hover:bg-gray-300'}`}
                                                 >
                                                     {isSelected && <Icons.Check size={12} strokeWidth={3} />}
                                                 </button>
@@ -646,7 +663,7 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
                     product_name: selectedForEdit.name,
                     image_url: selectedForEdit.image,
                     brands: selectedForEdit.brand,
-                    serving_size: "",
+                    serving_size: selectedForEdit.servingSize ? `${selectedForEdit.servingSize} g` : "",
                     quantity: selectedForEdit.quantity,
                     nutriments: {
                         'energy-kcal_100g': selectedForEdit.nutrition?.calories,
@@ -657,11 +674,27 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
                 }}
                 mealTypeLabel="Pantry"
                 onClose={() => setSelectedForEdit(null)}
-                onAdd={(name, cals, macros, quantity) => {
+                initialAmount={selectedForEdit.unit === 'portion' && selectedForEdit.quantity 
+                    ? parseFloat(selectedForEdit.quantity) // Assuming quantity string starts with number like "2 portions"
+                    : parseFloat(selectedForEdit.quantity || "100")}
+                initialUnit={selectedForEdit.unit as any}
+                onAdd={(name, cals, macros, quantity, unit, servingCount) => {
+                    let displayQuantity = quantity.toString();
+                    
+                    // Format display quantity based on unit
+                    if (unit === 'portion' && servingCount) {
+                        displayQuantity = `${servingCount} portion${servingCount > 1 ? 's' : ''}`;
+                    } else {
+                         // For grams, usually we just store the number or "100g"
+                         displayQuantity = `${quantity}`;
+                    }
+
                     onUpdate({
                         ...selectedForEdit,
                         name,
-                        quantity: quantity.toString(),
+                        quantity: displayQuantity,
+                        unit: unit,
+                        servingSize: selectedForEdit.servingSize,
                         nutrition: {
                             calories: cals,
                             protein: macros.protein,
@@ -671,7 +704,6 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
                     });
                     setSelectedForEdit(null);
                 }}
-                initialAmount={parseFloat(selectedForEdit.quantity || "100")}
                 isEditing={true}
                 onDelete={() => {
                     onRemove(selectedForEdit.id);

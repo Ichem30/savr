@@ -146,7 +146,7 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
         }
     };
 
-    const handleAddProduct = (name: string, calories: number, macros: any, quantity: number) => {
+    const handleAddProduct = (name: string, calories: number, macros: any, quantity: number, unit?: string, servingCount?: number) => {
         if (editingItem) {
             onUpdateMeal({
                 ...editingItem,

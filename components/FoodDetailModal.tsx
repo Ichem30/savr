@@ -3,19 +3,27 @@ import { motion } from 'framer-motion';
 import { Icons } from './Icons';
 import { ProductResult } from '../services/foodApi';
 
+import { ModernSelect } from './ModernSelect';
+
 interface FoodDetailModalProps {
     product: ProductResult;
     mealTypeLabel: string; // "Petit déjeuner"
     onClose: () => void;
-    onAdd: (name: string, calories: number, macros: any, quantity: number) => void;
+    onAdd: (name: string, calories: number, macros: any, quantity: number, unit?: string, servingCount?: number) => void;
     initialAmount?: number;
+    initialUnit?: 'g' | 'portion';
     isEditing?: boolean;
     onDelete?: () => void;
 }
 
-export const FoodDetailModal: React.FC<FoodDetailModalProps> = ({ product, mealTypeLabel, onClose, onAdd, initialAmount, isEditing, onDelete }) => {
+export const FoodDetailModal: React.FC<FoodDetailModalProps> = ({ product, mealTypeLabel, onClose, onAdd, initialAmount, initialUnit = 'g', isEditing, onDelete }) => {
     const [amount, setAmount] = useState<string>(initialAmount ? initialAmount.toString() : '100');
     const [unit, setUnit] = useState<'g' | 'portion'>('g');
+
+    // Update unit if initialUnit changes (or on mount)
+    useEffect(() => {
+        if (initialUnit) setUnit(initialUnit);
+    }, [initialUnit]);
     
     // Parse serving size if available (e.g. "150 g" -> 150)
     // Handle potential non-string API responses safely
@@ -176,14 +184,22 @@ export const FoodDetailModal: React.FC<FoodDetailModalProps> = ({ product, mealT
                                 className="bg-transparent w-full outline-none font-bold text-gray-800 text-lg text-center"
                                 placeholder={unit === 'portion' ? "1" : "100"}
                              />
-                             <select 
-                                value={unit} 
-                                onChange={e => setAmount(e.target.value === 'portion' ? '1' : '100') || setUnit(e.target.value as any)}
-                                className="bg-transparent font-bold text-sm ml-2 outline-none text-gray-500 appearance-none text-right pr-2"
-                             >
-                                 <option value="g">g / ml</option>
-                                 {hasServing && <option value="portion">Portion ({servingWeight}g)</option>}
-                             </select>
+                             <div className="ml-2">
+                                <ModernSelect
+                                    value={unit}
+                                    onChange={(val) => {
+                                        const newUnit = val as any;
+                                        setAmount(newUnit === 'portion' ? '1' : '100');
+                                        setUnit(newUnit);
+                                    }}
+                                    options={[
+                                        { value: 'g', label: 'g / ml' },
+                                        ...(hasServing ? [{ value: 'portion', label: `Portion (${servingWeight}g)` }] : [])
+                                    ]}
+                                    className="!border-0 !bg-transparent !shadow-none !p-0 !h-auto !text-gray-500 !w-auto"
+                                    placeholder="Unit"
+                                />
+                             </div>
                          </div>
                      </div>
                      
@@ -197,7 +213,19 @@ export const FoodDetailModal: React.FC<FoodDetailModalProps> = ({ product, mealT
                              </button>
                          )}
                          <button 
-                            onClick={() => onAdd(product.product_name, cals, { protein: parseFloat(prot), carbs: parseFloat(carbs), fats: parseFloat(fat) }, currentWeight)}
+                            onClick={() => {
+                                // If unit is portion, amount is the number of portions.
+                                // If unit is g, amount is grams.
+                                const rawAmount = parseFloat(amount) || 0;
+                                onAdd(
+                                    product.product_name, 
+                                    cals, 
+                                    { protein: parseFloat(prot), carbs: parseFloat(carbs), fats: parseFloat(fat) }, 
+                                    currentWeight,
+                                    unit,
+                                    unit === 'portion' ? rawAmount : undefined
+                                );
+                            }}
                             className="flex-1 py-4 bg-primary text-white rounded-2xl font-bold text-lg shadow-lg shadow-primary/20 hover:bg-emerald-600 transition-all active:scale-95"
                          >
                              {isEditing ? "Mettre à jour" : `Ajouter au ${mealTypeLabel}`}

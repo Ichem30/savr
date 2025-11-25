@@ -26,6 +26,8 @@ export interface Ingredient {
   isScanned?: boolean;
   brand?: string;
   image?: string;
+  unit?: string;
+  servingSize?: number;
   nutrition?: {
     calories?: number;
     protein?: number;
