@@ -4,6 +4,7 @@ import { Icons } from '../components/Icons';
 import { Html5Qrcode } from "html5-qrcode";
 import { IngredientContextMenu } from '../components/IngredientContextMenu';
 import { ModernSelect } from '../components/ModernSelect';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface PantryProps {
   pantry: Ingredient[];
@@ -189,8 +190,14 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
   return (
     <div className="h-full flex flex-col relative bg-gray-50">
       {/* Scanner Overlay */}
+      <AnimatePresence>
       {isScanning && (
-          <div className="absolute inset-0 z-50 bg-black flex flex-col animate-fade-in">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-50 bg-black flex flex-col"
+          >
               <div className="relative flex-1 flex items-center justify-center overflow-hidden bg-black">
                   <div id="reader" className="w-full h-full object-cover"></div>
                   <div className="absolute inset-0 pointer-events-none border-[50px] border-black/50">
@@ -213,16 +220,23 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
                       <button onClick={stopScanner} className="mt-3 px-4 py-1 bg-white text-red-500 rounded-full text-sm font-bold">Close</button>
                   </div>
               )}
-          </div>
+          </motion.div>
       )}
+      </AnimatePresence>
 
       {/* Header Section */}
-      <div className="bg-white p-6 pb-8 rounded-b-3xl shadow-sm z-10">
+      <div className="bg-white p-6 pb-8 rounded-b-3xl shadow-sm z-10 sticky top-0">
         <h2 className="text-2xl font-bold text-gray-800 mb-1">What's in your kitchen?</h2>
         <p className="text-gray-400 text-sm mb-4">Add ingredients or scan barcodes.</p>
         
+        <AnimatePresence>
         {showTip && (
-            <div className="mb-4 bg-emerald-50 border border-emerald-100 p-3 rounded-xl flex items-start gap-3 relative animate-fade-in">
+            <motion.div 
+                initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+                animate={{ opacity: 1, height: 'auto', marginBottom: 16 }}
+                exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                className="bg-emerald-50 border border-emerald-100 p-3 rounded-xl flex items-start gap-3 relative overflow-hidden"
+            >
                 <div className="bg-white p-1.5 rounded-full text-primary shadow-sm shrink-0 mt-0.5">
                     <Icons.Leaf size={16} />
                 </div>
@@ -233,8 +247,9 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
                     </p>
                 </div>
                 <button onClick={() => setShowTip(false)} className="absolute top-2 right-2 text-emerald-400 hover:text-emerald-600 p-1"><Icons.X size={14} /></button>
-            </div>
+            </motion.div>
         )}
+        </AnimatePresence>
 
         <div className="flex gap-2">
           <div className="flex-1 flex bg-gray-100 border-0 rounded-xl px-4 py-3 focus-within:ring-2 focus-within:ring-primary transition-all min-w-0">
@@ -258,18 +273,28 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
                 className="w-full bg-transparent border-none outline-none text-gray-700 placeholder-gray-400 text-center"
             />
           </div>
-          <button onClick={() => addIngredient()} className="bg-primary text-white rounded-xl w-12 flex items-center justify-center shadow-lg shadow-primary/20 active:scale-95 transition-all shrink-0"><Icons.Plus size={24} /></button>
+          <motion.button 
+            whileTap={{ scale: 0.9 }}
+            onClick={() => addIngredient()} 
+            className="bg-primary text-white rounded-xl w-12 flex items-center justify-center shadow-lg shadow-primary/20 transition-all shrink-0"
+          >
+            <Icons.Plus size={24} />
+          </motion.button>
         </div>
       </div>
 
       {/* List Section */}
       <div className="flex-1 overflow-y-auto p-6 pb-64 space-y-6">
         {pantry.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-48 text-gray-400 mt-4">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col items-center justify-center h-48 text-gray-400 mt-4"
+          >
             <Icons.Refrigerator size={48} className="mb-3 opacity-20" />
             <p>Your pantry is empty.</p>
             <button onClick={() => setIsScanning(true)} className="mt-4 text-primary font-semibold text-sm flex items-center gap-2 px-4 py-2 bg-emerald-50 rounded-full"><Icons.ScanBarcode size={16} /> Scan a product</button>
-          </div>
+          </motion.div>
         ) : (
           <>
              <div className="relative mb-2">
@@ -291,56 +316,68 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
                     </div>
 
                     {scannedItems.length > 0 && (
-                        <div>
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
                             <h3 className="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-3 flex items-center gap-2"><Icons.ScanBarcode size={14} /> Identified Products</h3>
                             <div className="grid grid-cols-1 gap-3">
-                                {scannedItems.map(item => {
+                                {scannedItems.map((item, index) => {
                                     const isSelected = item.isSelected !== false;
                                     return (
-                                        <IngredientContextMenu 
-                                            key={item.id} 
+                                        <motion.div
+                                            key={item.id}
+                                            initial={{ opacity: 0, x: -10 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            transition={{ delay: index * 0.05 }}
+                                        >
+                                            <IngredientContextMenu 
+                                                itemName={item.name}
+                                                onEdit={() => handleEdit(item)}
+                                                onDelete={() => removeIngredient(item.id)}
+                                            >
+                                                <div onClick={() => toggleIngredient(item)} className={`p-3 rounded-2xl flex items-center gap-3 shadow-sm cursor-pointer transition-all border ${isSelected ? 'bg-white border-primary ring-1 ring-primary/20' : 'bg-gray-50 border-transparent opacity-60'}`}>
+                                                    {item.image ? <img src={item.image} alt={item.name} className="w-12 h-12 rounded-lg object-cover bg-gray-100" /> : <div className="w-12 h-12 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-500"><Icons.ShoppingBag size={20} /></div>}
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="font-bold text-gray-800 truncate text-sm">{item.name}{item.quantity && <span className="font-normal text-gray-500 ml-2 text-xs">({item.quantity})</span>}</p>
+                                                        {item.brand && <p className="text-xs text-gray-500 truncate">{item.brand}</p>}
+                                                        {item.nutrition?.calories && <div className="flex items-center gap-2 mt-1 text-[10px] font-medium text-gray-400"><span className="text-orange-500">{Math.round(item.nutrition.calories)} kcal</span><span>•</span><span className="text-blue-500">{Math.round(item.nutrition.protein || 0)}g Pro</span></div>}
+                                                    </div>
+                                                    <button onClick={(e) => removeIngredient(item.id, e)} className={`p-2 rounded-full transition-colors ${isSelected ? 'hover:bg-gray-100 text-gray-400' : 'hover:bg-gray-200 text-gray-500'}`}><Icons.X size={16} /></button>
+                                                </div>
+                                            </IngredientContextMenu>
+                                        </motion.div>
+                                    )
+                                })}
+                            </div>
+                        </motion.div>
+                    )}
+
+                    {manualItems.length > 0 && (
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
+                            {scannedItems.length > 0 && <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2 mt-2"><Icons.List size={14} /> Pantry Staples</h3>}
+                            <div className="flex flex-wrap gap-2 content-start">
+                                {manualItems.map((item, index) => {
+                                const isSelected = item.isSelected !== false;
+                                return (
+                                    <motion.div
+                                        key={item.id}
+                                        initial={{ opacity: 0, scale: 0.9 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        transition={{ delay: index * 0.03 }}
+                                    >
+                                        <IngredientContextMenu
                                             itemName={item.name}
                                             onEdit={() => handleEdit(item)}
                                             onDelete={() => removeIngredient(item.id)}
                                         >
-                                            <div onClick={() => toggleIngredient(item)} className={`p-3 rounded-2xl flex items-center gap-3 shadow-sm cursor-pointer transition-all border ${isSelected ? 'bg-white border-primary ring-1 ring-primary/20' : 'bg-gray-50 border-transparent opacity-60'}`}>
-                                                {item.image ? <img src={item.image} alt={item.name} className="w-12 h-12 rounded-lg object-cover bg-gray-100" /> : <div className="w-12 h-12 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-500"><Icons.ShoppingBag size={20} /></div>}
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="font-bold text-gray-800 truncate text-sm">{item.name}{item.quantity && <span className="font-normal text-gray-500 ml-2 text-xs">({item.quantity})</span>}</p>
-                                                    {item.brand && <p className="text-xs text-gray-500 truncate">{item.brand}</p>}
-                                                    {item.nutrition?.calories && <div className="flex items-center gap-2 mt-1 text-[10px] font-medium text-gray-400"><span className="text-orange-500">{Math.round(item.nutrition.calories)} kcal</span><span>•</span><span className="text-blue-500">{Math.round(item.nutrition.protein || 0)}g Pro</span></div>}
-                                                </div>
-                                                <button onClick={(e) => removeIngredient(item.id, e)} className={`p-2 rounded-full transition-colors ${isSelected ? 'hover:bg-gray-100 text-gray-400' : 'hover:bg-gray-200 text-gray-500'}`}><Icons.X size={16} /></button>
+                                            <div onClick={() => toggleIngredient(item)} className={`pl-3 pr-1 py-1.5 rounded-full flex items-center gap-2 shadow-sm cursor-pointer transition-all border ${isSelected ? 'bg-emerald-50 border-primary text-emerald-800 ring-1 ring-primary' : 'bg-gray-100 border-transparent text-gray-400 opacity-60 hover:opacity-80'}`}>
+                                                <span className="font-medium text-sm select-none capitalize">{item.name}</span>
+                                                {item.quantity && <span className="text-[10px] text-gray-500 bg-white/80 px-1.5 py-0.5 rounded ml-1 border border-gray-200 font-normal">{item.quantity}</span>}
+                                                <button onClick={(e) => removeIngredient(item.id, e)} className={`p-1 rounded-full transition-colors ${isSelected ? 'hover:bg-emerald-100 text-emerald-600' : 'hover:bg-gray-200 text-gray-500'}`}><Icons.X size={14} /></button>
                                             </div>
                                         </IngredientContextMenu>
-                                    )
-                                })}
-                            </div>
-                        </div>
-                    )}
-
-                    {manualItems.length > 0 && (
-                        <div>
-                            {scannedItems.length > 0 && <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2 mt-2"><Icons.List size={14} /> Pantry Staples</h3>}
-                            <div className="flex flex-wrap gap-2 content-start">
-                                {manualItems.map(item => {
-                                const isSelected = item.isSelected !== false;
-                                return (
-                                    <IngredientContextMenu
-                                        key={item.id}
-                                        itemName={item.name}
-                                        onEdit={() => handleEdit(item)}
-                                        onDelete={() => removeIngredient(item.id)}
-                                    >
-                                        <div onClick={() => toggleIngredient(item)} className={`pl-3 pr-1 py-1.5 rounded-full flex items-center gap-2 shadow-sm cursor-pointer transition-all border ${isSelected ? 'bg-emerald-50 border-primary text-emerald-800 ring-1 ring-primary' : 'bg-gray-100 border-transparent text-gray-400 opacity-60 hover:opacity-80'}`}>
-                                            <span className="font-medium text-sm select-none capitalize">{item.name}</span>
-                                            {item.quantity && <span className="text-[10px] text-gray-500 bg-white/80 px-1.5 py-0.5 rounded ml-1 border border-gray-200 font-normal">{item.quantity}</span>}
-                                            <button onClick={(e) => removeIngredient(item.id, e)} className={`p-1 rounded-full transition-colors ${isSelected ? 'hover:bg-emerald-100 text-emerald-600' : 'hover:bg-gray-200 text-gray-500'}`}><Icons.X size={14} /></button>
-                                        </div>
-                                    </IngredientContextMenu>
+                                    </motion.div>
                                 )})}
                             </div>
-                        </div>
+                        </motion.div>
                     )}
                 </>
              )}
@@ -349,19 +386,21 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
       </div>
 
       {pantry.length > 0 && (
-        <div className="absolute bottom-0 left-0 w-full px-6 pb-4 pt-6 space-y-3 bg-gradient-to-t from-gray-50 via-gray-50 to-transparent z-20">
+        <div className="absolute bottom-0 left-0 w-full px-6 pb-28 pt-6 space-y-3 bg-gradient-to-t from-gray-50 via-gray-50 to-transparent z-20">
             {/* Preference Pills */}
-            <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar mask-fade-right">
+            <div className="flex flex-wrap gap-2 justify-start pb-2">
                 <ModernSelect
                     value={selectedMeal}
                     onChange={(val) => setSelectedMeal(val || undefined)}
                     placeholder="Any Meal"
+                    icon={Icons.Utensils}
+                    className="flex-1 min-w-[100px] justify-center"
                     options={[
-                        { value: "", label: "Any Meal" },
-                        { value: "Breakfast", label: "Breakfast" },
-                        { value: "Lunch", label: "Lunch" },
-                        { value: "Dinner", label: "Dinner" },
-                        { value: "Snack", label: "Snack" }
+                        { value: "", label: "Any Meal", icon: Icons.Utensils },
+                        { value: "Breakfast", label: "Breakfast", icon: Icons.Sunrise },
+                        { value: "Lunch", label: "Lunch", icon: Icons.Sun },
+                        { value: "Dinner", label: "Dinner", icon: Icons.Moon },
+                        { value: "Snack", label: "Snack", icon: Icons.Apple }
                     ]}
                 />
 
@@ -369,11 +408,13 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
                     value={selectedTime}
                     onChange={(val) => setSelectedTime(val || undefined)}
                     placeholder="Any Time"
+                    icon={Icons.Clock}
+                    className="flex-1 min-w-[100px] justify-center"
                     options={[
-                        { value: "", label: "Any Time" },
-                        { value: "15 min", label: "15 min" },
-                        { value: "30 min", label: "30 min" },
-                        { value: "60 min", label: "60 min" }
+                        { value: "", label: "Any Time", icon: Icons.Clock },
+                        { value: "15 min", label: "15 min", icon: Icons.Clock },
+                        { value: "30 min", label: "30 min", icon: Icons.Clock },
+                        { value: "60 min", label: "60 min", icon: Icons.Clock }
                     ]}
                 />
 
@@ -381,29 +422,36 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
                     value={selectedSkill}
                     onChange={(val) => setSelectedSkill(val || undefined)}
                     placeholder="Any Level"
+                    icon={Icons.TrendingUp}
+                    className="flex-1 min-w-[100px] justify-center"
                     options={[
-                        { value: "", label: "Any Level" },
-                        { value: "Beginner", label: "Beginner" },
-                        { value: "Intermediate", label: "Intermediate" },
-                        { value: "Advanced", label: "Pro" }
+                        { value: "", label: "Any Level", icon: Icons.TrendingUp },
+                        { value: "Beginner", label: "Beginner", icon: Icons.Leaf },
+                        { value: "Intermediate", label: "Intermediate", icon: Icons.ChefHat },
+                        { value: "Advanced", label: "Pro", icon: Icons.Flame }
                     ]}
                 />
             </div>
 
-            <div onClick={() => setStrictMode(!strictMode)} className="bg-white/90 backdrop-blur p-3 rounded-xl flex items-center justify-between cursor-pointer border border-gray-200 shadow-sm hover:border-primary/30 transition-colors">
+            <motion.div 
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setStrictMode(!strictMode)} 
+                className="bg-white/90 backdrop-blur p-3 rounded-xl flex items-center justify-between cursor-pointer border border-gray-200 shadow-sm hover:border-primary/30 transition-colors"
+            >
                 <div className="flex items-center gap-3">
                     <div className={`p-2 rounded-full ${strictMode ? 'bg-emerald-100 text-primary' : 'bg-gray-100 text-gray-400'}`}>{strictMode ? <Icons.Check size={18} /> : <Icons.ShoppingBag size={18} />}</div>
                     <div><span className="block text-sm font-bold text-gray-800">{strictMode ? "Use only selected ingredients" : "Allow missing ingredients"}</span><span className="block text-xs text-gray-500">{strictMode ? "No shopping required." : "We might suggest extras."}</span></div>
                 </div>
-                <div className={`w-11 h-6 rounded-full p-1 transition-colors duration-300 ${strictMode ? 'bg-primary' : 'bg-gray-300'}`}><div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-300 ${strictMode ? 'translate-x-5' : ''}`} /></div>
-            </div>
-            <button 
+                <div className={`w-11 h-6 rounded-full p-1 transition-colors duration-300 ${strictMode ? 'bg-primary' : 'bg-gray-300'}`}><motion.div layout className={`w-4 h-4 bg-white rounded-full shadow-sm ${strictMode ? 'translate-x-5' : ''}`} /></div>
+            </motion.div>
+            <motion.button 
+                whileTap={{ scale: 0.98 }}
                 onClick={() => onGenerate(strictMode, { mealType: selectedMeal, timeLimit: selectedTime, skillLevel: selectedSkill })} 
                 disabled={selectedCount === 0} 
                 className={`w-full py-4 rounded-xl font-bold shadow-xl flex items-center justify-center gap-2 transition-all ${selectedCount > 0 ? 'bg-white border-2 border-primary text-primary shadow-primary/10 hover:bg-primary hover:text-white' : 'bg-gray-100 text-gray-400 cursor-not-allowed border-2 border-transparent'}`}
             >
                 <Icons.ChefHat className="w-5 h-5" />{selectedCount > 0 ? `Generate Recipes (${selectedCount})` : 'Select ingredients'}
-            </button>
+            </motion.button>
         </div>
       )}
     </div>

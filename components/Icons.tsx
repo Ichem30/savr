@@ -5,8 +5,9 @@ import {
   User, 
   Plus, 
   Trash2, 
-  ArrowLeft, 
-  Check, 
+  ArrowLeft,
+  ArrowRight,
+  Check,
   Flame, 
   Clock, 
   TrendingUp, 
@@ -36,7 +37,15 @@ import {
   LogIn,
   Phone,
   Edit2,
-  Eye
+  Eye,
+  Mail,
+  Lock,
+  Sun,
+  Moon,
+  Coffee,
+  Apple,
+  Sunset,
+  Sunrise
 } from 'lucide-react';
 
 export const Icons = {
@@ -48,6 +57,7 @@ export const Icons = {
   Trash: Trash2, // Alias for Trash
   Edit: Edit2,   // Alias for Edit
   ArrowLeft,
+  ArrowRight,
   Check,
   Flame,
   Clock,
@@ -79,5 +89,13 @@ export const Icons = {
   LogOut,
   LogIn,
   Phone,
-  Eye
+  Eye,
+  Mail,
+  Lock,
+  Sun,
+  Moon,
+  Coffee,
+  Apple,
+  Sunset,
+  Sunrise
 };

@@ -11,6 +11,8 @@ import { Profile } from './views/Profile';
 import { Icons } from './components/Icons';
 import { generateRecipes } from './services/geminiService';
 import { ChatAssistant } from './components/ChatAssistant';
+import { AnimatePresence, motion } from 'framer-motion';
+import { PageTransition } from './components/PageTransition';
 import { 
   auth, 
   subscribeToProfile, 
@@ -258,29 +260,49 @@ const App: React.FC = () => {
   // Bottom Navigation Bar
   const NavBar = () => {
     if (view === 'auth' || view === 'onboarding' || view === 'edit-profile' || view === 'recipe-detail' || view === 'cooking-mode') return null;
-    const navItemClass = (isActive: boolean) => 
-      `flex flex-col items-center justify-center w-full py-2 transition-colors ${isActive ? 'text-primary font-bold' : 'text-gray-400'}`;
 
     return (
-      <div className="bg-white border-t border-gray-200 pb-safe pt-2 px-8 flex justify-between items-end h-20 z-20 relative">
-        <button onClick={() => setView('pantry')} className={`${navItemClass(view === 'pantry')} pb-3`}>
-          <Icons.Refrigerator size={24} />
-          <span className="text-[10px] font-medium mt-1">Pantry</span>
-        </button>
-        <button 
-          onClick={() => {
-            if (generatedRecipes.length > 0) setView('recipes');
-            else if (pantry.length > 0) handleGenerateRecipes();
-            else setView('pantry');
-          }} 
-          className="bg-primary text-white p-4 rounded-full -mt-10 mb-5 shadow-lg shadow-primary/40 active:scale-95 transition-transform z-30"
-        >
-          <Icons.ChefHat size={28} />
-        </button>
-        <button onClick={() => setView('profile')} className={`${navItemClass(view === 'profile')} pb-3`}>
-          <Icons.User size={24} />
-          <span className="text-[10px] font-medium mt-1">Profile</span>
-        </button>
+      <div className="absolute bottom-6 left-0 right-0 px-6 z-50 flex justify-center pointer-events-none">
+        <div className="bg-white/90 backdrop-blur-xl border border-white/40 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-3xl flex justify-between items-center p-2 w-full max-w-[320px] pointer-events-auto relative">
+            
+            {/* Pantry Tab */}
+            <button 
+                onClick={() => setView('pantry')}
+                className={`flex-1 flex flex-col items-center justify-center py-2.5 rounded-2xl transition-all duration-300 relative group ${view === 'pantry' ? 'text-primary' : 'text-gray-400 hover:text-gray-600'}`}
+            >
+                <div className={`absolute inset-0 bg-primary/10 rounded-2xl scale-0 transition-transform duration-300 ${view === 'pantry' ? 'scale-100' : 'group-hover:scale-50 opacity-0 group-hover:opacity-50'}`} />
+                <Icons.Refrigerator size={24} strokeWidth={view === 'pantry' ? 2.5 : 2} className="relative z-10 transition-transform duration-300 group-active:scale-90" />
+                <span className={`text-[10px] font-bold mt-1 relative z-10 transition-opacity duration-300 ${view === 'pantry' ? 'opacity-100' : 'opacity-70'}`}>Pantry</span>
+            </button>
+
+            {/* Center Action Button - Floating above */}
+            <div className="relative -mt-12 mx-2">
+                <motion.button
+                    whileHover={{ scale: 1.05, y: -2 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                        if (generatedRecipes.length > 0) setView('recipes');
+                        else if (pantry.length > 0) handleGenerateRecipes();
+                        else setView('pantry');
+                    }} 
+                    className="w-16 h-16 bg-gradient-to-br from-primary to-emerald-600 text-white rounded-full flex items-center justify-center shadow-lg shadow-primary/30 border-4 border-gray-50 relative z-10 overflow-hidden group"
+                >
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <Icons.ChefHat size={30} className="drop-shadow-md" />
+                </motion.button>
+            </div>
+
+            {/* Profile Tab */}
+            <button 
+                onClick={() => setView('profile')}
+                className={`flex-1 flex flex-col items-center justify-center py-2.5 rounded-2xl transition-all duration-300 relative group ${view === 'profile' ? 'text-primary' : 'text-gray-400 hover:text-gray-600'}`}
+            >
+                <div className={`absolute inset-0 bg-primary/10 rounded-2xl scale-0 transition-transform duration-300 ${view === 'profile' ? 'scale-100' : 'group-hover:scale-50 opacity-0 group-hover:opacity-50'}`} />
+                <Icons.User size={24} strokeWidth={view === 'profile' ? 2.5 : 2} className="relative z-10 transition-transform duration-300 group-active:scale-90" />
+                <span className={`text-[10px] font-bold mt-1 relative z-10 transition-opacity duration-300 ${view === 'profile' ? 'opacity-100' : 'opacity-70'}`}>Profile</span>
+            </button>
+
+        </div>
       </div>
     );
   };
@@ -298,47 +320,67 @@ const App: React.FC = () => {
         <div id="recaptcha-container"></div>
 
         <main className="flex-1 overflow-hidden relative bg-gray-50">
-          {view === 'auth' && <Auth onSkip={() => setView('onboarding')} currentUser={currentUser} />}
-          
-          {view === 'onboarding' && <Onboarding onComplete={handleOnboardingComplete} />}
-          
-          {/* edit-profile view state is technically deprecated by the new inline editing but kept if needed for edge cases */}
-          {view === 'edit-profile' && userProfile && (
-              <Onboarding 
-                onComplete={handleOnboardingComplete} 
-                initialData={userProfile} 
-              />
-          )}
-          
-          {view === 'pantry' && (
-            <Pantry 
-              pantry={pantry} 
-              onGenerate={handleGenerateRecipes}
-              onAdd={onPantryAdd}
-              onUpdate={onPantryUpdate}
-              onRemove={onPantryRemove}
-            />
-          )}
-          
-          {view === 'recipes' && (
-            <RecipeFeed 
-              recipes={generatedRecipes} 
-              loading={loading} 
-              onSelectRecipe={handleRecipeSelect}
-              onBack={() => setView('pantry')}
-            />
-          )}
+          <AnimatePresence mode="wait">
+            {view === 'auth' && (
+              <PageTransition key="auth">
+                <Auth onSkip={() => setView('onboarding')} currentUser={currentUser} />
+              </PageTransition>
+            )}
+            
+            {view === 'onboarding' && (
+              <PageTransition key="onboarding">
+                <Onboarding onComplete={handleOnboardingComplete} />
+              </PageTransition>
+            )}
+            
+            {/* edit-profile view state is technically deprecated by the new inline editing but kept if needed for edge cases */}
+            {view === 'edit-profile' && userProfile && (
+                <PageTransition key="edit-profile">
+                  <Onboarding 
+                    onComplete={handleOnboardingComplete} 
+                    initialData={userProfile} 
+                  />
+                </PageTransition>
+            )}
+            
+            {view === 'pantry' && (
+              <PageTransition key="pantry">
+                <Pantry 
+                  pantry={pantry} 
+                  onGenerate={handleGenerateRecipes}
+                  onAdd={onPantryAdd}
+                  onUpdate={onPantryUpdate}
+                  onRemove={onPantryRemove}
+                />
+              </PageTransition>
+            )}
+            
+            {view === 'recipes' && (
+              <PageTransition key="recipes">
+                <RecipeFeed 
+                  recipes={generatedRecipes} 
+                  loading={loading} 
+                  onSelectRecipe={handleRecipeSelect}
+                  onBack={() => setView('pantry')}
+                />
+              </PageTransition>
+            )}
 
-          {view === 'recipe-detail' && selectedRecipe && (
-            <RecipeDetail 
-              recipe={selectedRecipe} 
-              onBack={() => setView('recipes')} 
-            />
-          )}
+            {view === 'recipe-detail' && selectedRecipe && (
+              <PageTransition key="recipe-detail">
+                <RecipeDetail 
+                  recipe={selectedRecipe} 
+                  onBack={() => setView('recipes')} 
+                />
+              </PageTransition>
+            )}
 
-          {view === 'profile' && userProfile && (
-             <Profile user={userProfile} onSave={handleSaveProfile} />
-          )}
+            {view === 'profile' && userProfile && (
+               <PageTransition key="profile">
+                 <Profile user={userProfile} onSave={handleSaveProfile} />
+               </PageTransition>
+            )}
+          </AnimatePresence>
         </main>
 
         <NavBar />
