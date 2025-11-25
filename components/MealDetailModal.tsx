@@ -4,6 +4,7 @@ import { Icons } from './Icons';
 import { ProductResult, searchLocalProducts, searchRemoteProducts, getProductByBarcode } from '../services/foodApi';
 import { FoodDetailModal } from './FoodDetailModal';
 import { auth, searchCachedFoods, saveFoodToCache } from '../services/firebase';
+import { startScan, stopScan } from '../services/scannerService';
 import { Html5Qrcode } from "html5-qrcode";
 
 interface MealDetailModalProps {
@@ -42,33 +43,28 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
     useEffect(() => {
         let isMounted = true;
         if (isScanning && !scannerRef.current) {
-            const scanner = new Html5Qrcode("meal-reader");
-            scannerRef.current = scanner;
-            scanner.start(
-                { facingMode: "environment" },
-                { fps: 10, qrbox: { width: 250, height: 250 } },
+            startScan(
+                scannerRef,
+                "meal-reader",
                 (decodedText) => { if (isMounted) handleScanSuccess(decodedText); },
-                (errorMessage) => {}
-            ).catch(err => {
-                console.error("Scanner start error:", err);
-                alert("Impossible de démarrer la caméra. Vérifiez les permissions.");
-                setIsScanning(false);
-            });
+                (errorMsg) => {
+                    if (isMounted) {
+                        console.error("Scanner Error:", errorMsg);
+                        if (!errorMsg.includes("stop")) alert("Erreur scan: " + errorMsg);
+                    }
+                }
+            );
         }
         return () => {
             isMounted = false;
-            if (scannerRef.current) {
-                scannerRef.current.stop().catch(e => console.warn(e)).finally(() => scannerRef.current?.clear());
-                scannerRef.current = null;
+            if (isScanning) {
+                stopScan(scannerRef);
             }
         };
     }, [isScanning]);
 
     const handleScanSuccess = async (barcode: string) => {
-        if (scannerRef.current) {
-             try { await scannerRef.current.stop(); scannerRef.current.clear(); } catch (e) {}
-             scannerRef.current = null;
-        }
+        await stopScan(scannerRef);
         setIsScanning(false);
 
         try {
@@ -84,10 +80,7 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
     };
 
     const stopScanner = async () => {
-        if (scannerRef.current) {
-            try { await scannerRef.current.stop(); scannerRef.current.clear(); } catch (e) {}
-            scannerRef.current = null;
-        }
+        await stopScan(scannerRef);
         setIsScanning(false);
     };
 

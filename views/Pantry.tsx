@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Ingredient } from '../types';
 import { Icons } from '../components/Icons';
 import { Html5Qrcode } from "html5-qrcode";
+import { startScan, stopScan } from '../services/scannerService';
 import { IngredientContextMenu } from '../components/IngredientContextMenu';
 import { ModernSelect } from '../components/ModernSelect';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -69,49 +70,39 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
       };
   }, [input]);
 
-  // ... Scanner Effects (Same as before) ...
+  // Scanner Logic
   useEffect(() => {
     let isMounted = true;
     if (isScanning && !scannerRef.current) {
-        const scanner = new Html5Qrcode("reader");
-        scannerRef.current = scanner;
         setScanError(null);
-        scanner.start(
-            { facingMode: "environment" },
-            { fps: 10, qrbox: { width: 250, height: 250 } },
+        
+        // Check if user is on mobile to show overlay only for mobile or web fallback
+        // Actually startScan handles both, but we need to pass the element ID for web fallback
+        startScan(
+            scannerRef,
+            "reader",
             (decodedText) => { if (isMounted) handleScanSuccess(decodedText); },
-            (errorMessage) => {}
-        ).catch(err => {
-            console.error("Scanner start error:", err);
-            if (isMounted) setScanError("Could not start camera. Please check permissions.");
-        });
+            (errorMsg) => { 
+                if (isMounted) {
+                    console.error("Scanner Error:", errorMsg);
+                    // Only show error if it's not a 'cancel' or trivial error
+                    if (!errorMsg.includes("stop")) setScanError(errorMsg); 
+                }
+            }
+        );
     }
     return () => {
         isMounted = false;
-        if (scannerRef.current && !isScanning) {
-             const scanner = scannerRef.current;
-             scanner.stop().catch(e => console.warn(e)).finally(() => { scanner.clear(); });
-             scannerRef.current = null;
+        if (isScanning) {
+             stopScan(scannerRef);
         }
     };
   }, [isScanning]);
 
   const stopScanner = async () => {
-      if (scannerRef.current) {
-          try {
-              await scannerRef.current.stop();
-              try { scannerRef.current.clear(); } catch (e) {}
-          } catch (err) {
-              try { scannerRef.current.clear(); } catch(e) {}
-          } finally {
-              scannerRef.current = null;
-              setIsScanning(false);
-              setScanError(null);
-          }
-      } else {
-          setIsScanning(false);
-          setScanError(null);
-      }
+      await stopScan(scannerRef);
+      setIsScanning(false);
+      setScanError(null);
   };
 
   const parseServing = (sizeStr?: string) => {
@@ -121,10 +112,7 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
   };
 
   const handleScanSuccess = async (barcode: string) => {
-      if (scannerRef.current) {
-         try { await scannerRef.current.stop(); scannerRef.current.clear(); } catch (e) {}
-         scannerRef.current = null;
-      }
+      await stopScan(scannerRef);
       setIsScanning(false);
 
       try {
