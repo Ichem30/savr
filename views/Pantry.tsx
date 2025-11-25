@@ -13,9 +13,11 @@ interface PantryProps {
   onAdd: (item: Ingredient) => void;
   onUpdate: (item: Ingredient) => void;
   onRemove: (id: string) => void;
+  isScanning: boolean;
+  setIsScanning: (isScanning: boolean) => void;
 }
 
-export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpdate, onRemove }) => {
+export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpdate, onRemove, isScanning, setIsScanning }) => {
   const [input, setInput] = useState('');
   const [quantityInput, setQuantityInput] = useState('');
   const [showTip, setShowTip] = useState(true);
@@ -27,8 +29,7 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
   const [selectedTime, setSelectedTime] = useState<string | undefined>(undefined);
   const [selectedSkill, setSelectedSkill] = useState<string | undefined>(undefined);
   
-  // Scanner State
-  const [isScanning, setIsScanning] = useState(false);
+  // Scanner State (Moved to App.tsx, using props now)
   const [scanError, setScanError] = useState<string | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
 

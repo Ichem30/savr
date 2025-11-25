@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { UserProfile, Gender, FitnessGoal } from '../types';
 import { Icons } from '../components/Icons';
+import { ModernSelect } from '../components/ModernSelect';
 
 interface OnboardingProps {
   onComplete: (profile: UserProfile) => void;
@@ -227,15 +228,17 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialData 
                         className="w-full p-4 bg-gray-50 border-0 rounded-xl focus:ring-2 focus:ring-primary outline-none text-center text-primary font-semibold"
                         placeholder="Age"
                     />
-                    <select 
+                    <ModernSelect
                         value={formData.gender}
-                        onChange={e => setFormData({...formData, gender: e.target.value as Gender})}
-                        className="w-full p-4 bg-gray-50 border-0 rounded-xl outline-none text-center appearance-none text-primary font-semibold"
-                    >
-                        <option value="male">Male</option>
-                        <option value="female">Female</option>
-                        <option value="other">Other</option>
-                    </select>
+                        onChange={(val) => setFormData({...formData, gender: val as Gender})}
+                        placeholder="Gender"
+                        options={[
+                            { value: 'male', label: 'Male' },
+                            { value: 'female', label: 'Female' },
+                            { value: 'other', label: 'Other' }
+                        ]}
+                        className="w-full"
+                    />
                 </div>
                 {!isStepValid() && (formData.name || formData.age) ? (
                    <p className="text-red-400 text-xs text-center mt-2 animate-pulse">Please enter your name and age.</p>
@@ -343,7 +346,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialData 
         )}
       </div>
 
-      <div className="p-6 mt-auto">
+      <div className={`p-6 mt-auto ${step === 4 ? 'pb-28' : ''}`}>
         {step === 4 ? (
             <button 
                 onClick={finish}

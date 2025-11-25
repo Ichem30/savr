@@ -34,6 +34,9 @@ const App: React.FC = () => {
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [loading, setLoading] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
+  const [isScanning, setIsScanning] = useState(false);
+  
+  const appConstraintsRef = React.useRef<HTMLDivElement>(null);
 
   // 1. Handle Authentication
   useEffect(() => {
@@ -259,7 +262,7 @@ const App: React.FC = () => {
 
   // Bottom Navigation Bar
   const NavBar = () => {
-    if (view === 'auth' || view === 'onboarding' || view === 'edit-profile' || view === 'recipe-detail' || view === 'cooking-mode') return null;
+    if (view === 'auth' || view === 'onboarding' || view === 'edit-profile' || view === 'recipe-detail' || view === 'cooking-mode' || isScanning) return null;
 
     return (
       <div className="absolute bottom-6 left-0 right-0 px-6 z-50 flex justify-center pointer-events-none">
@@ -313,7 +316,7 @@ const App: React.FC = () => {
 
   return (
     <div className="bg-gray-200 min-h-screen flex justify-center font-sans">
-      <div className="w-full max-w-[400px] sm:h-[850px] sm:my-auto bg-white sm:rounded-[3rem] sm:border-8 sm:border-gray-900 h-screen shadow-2xl overflow-hidden flex flex-col relative">
+      <div ref={appConstraintsRef} className="w-full sm:max-w-[400px] sm:h-[850px] sm:my-auto bg-white sm:rounded-[3rem] sm:border-8 sm:border-gray-900 h-screen shadow-2xl overflow-hidden flex flex-col relative">
         <div className="h-6 w-full bg-transparent absolute top-0 z-50 sm:block hidden" />
         
         {/* Invisible Recaptcha Container for Phone Auth */}
@@ -351,6 +354,8 @@ const App: React.FC = () => {
                   onAdd={onPantryAdd}
                   onUpdate={onPantryUpdate}
                   onRemove={onPantryRemove}
+                  isScanning={isScanning}
+                  setIsScanning={setIsScanning}
                 />
               </PageTransition>
             )}
@@ -387,6 +392,7 @@ const App: React.FC = () => {
 
         {view !== 'auth' && view !== 'onboarding' && view !== 'edit-profile' && (
             <ChatAssistant 
+                constraintsRef={appConstraintsRef}
                 user={userProfile} 
                 pantry={pantry}
                 currentView={view}
