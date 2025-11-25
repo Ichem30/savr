@@ -45,26 +45,51 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({
   const BUTTON_SIZE = 48; // Réduit de 56 à 48
   const MARGIN_Y = 60; // Marge de sécurité verticale importante
   
+  const getResetCoordinates = () => {
+      let x = 0;
+      let y = 0;
+      if (constraintsRef?.current) {
+          const parentRect = constraintsRef.current.getBoundingClientRect();
+          x = parentRect.width - BUTTON_SIZE;
+          y = parentRect.height / 2 - (BUTTON_SIZE / 2);
+      } else if (typeof window !== 'undefined') {
+          x = window.innerWidth - BUTTON_SIZE;
+          y = window.innerHeight / 2;
+      }
+      return { x, y };
+  };
+
+  const resetPosition = () => {
+      const coords = getResetCoordinates();
+      controls.start({
+          x: coords.x, 
+          y: coords.y,
+          transition: { type: "spring", stiffness: 500, damping: 30 }
+      });
+      setSide('right');
+  };
+
   // Initialisation de la position au montage
   useEffect(() => {
     // Petit délai pour s'assurer que le parent est monté et a des dimensions
     const initTimer = setTimeout(() => {
-        if (constraintsRef?.current) {
-            const parentRect = constraintsRef.current.getBoundingClientRect();
-            // Position initiale : Droite, milieu vertical
-            controls.set({
-                x: parentRect.width - BUTTON_SIZE, 
-                y: parentRect.height / 2 - (BUTTON_SIZE / 2)
-            });
-        } else if (typeof window !== 'undefined') {
-            controls.set({
-                x: window.innerWidth - BUTTON_SIZE,
-                y: window.innerHeight / 2
-            });
-        }
+        resetPosition();
     }, 100);
     return () => clearTimeout(initTimer);
   }, [constraintsRef, controls]);
+
+  // Reset de la position à la fermeture du chat
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+      if (isFirstRender.current) {
+          isFirstRender.current = false;
+          return;
+      }
+      
+      if (!isOpen) {
+          resetPosition();
+      }
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && messagesEndRef.current) {
@@ -235,6 +260,7 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({
       {/* Draggable Trigger */}
       {!isOpen && (
         <motion.div 
+            initial={getResetCoordinates()}
             drag
             dragMomentum={false} // Désactive l'élan pour un arrêt précis
             dragElastic={0.1} // Très peu d'élasticité
