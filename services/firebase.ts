@@ -32,6 +32,7 @@ import {
   limit,
   getDocs
 } from "firebase/firestore";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { UserProfile, Ingredient, Recipe } from "../types";
 
 // --- CONFIGURATION ---
@@ -56,6 +57,15 @@ if (!firebaseConfig.apiKey) {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+export const storage = getStorage(app);
+
+// --- Helpers for Storage ---
+export const uploadProfileImage = async (uid: string, file: File) => {
+    const storageRef = ref(storage, `users/${uid}/profile/${file.name}`);
+    await uploadBytes(storageRef, file);
+    return await getDownloadURL(storageRef);
+};
+
 
 // --- Auth Helpers ---
 

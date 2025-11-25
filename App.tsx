@@ -27,6 +27,22 @@ import {
   deleteSavedRecipe
 } from './services/firebase';
 
+// Helper for updating weight history
+const updateWeightHistory = (profile: UserProfile, existingHistory: { date: string, weight: number }[] = []): UserProfile => {
+    const today = new Date().toISOString().split('T')[0];
+    let finalProfile = { ...profile };
+    const history = existingHistory;
+    const lastEntry = history[history.length - 1];
+
+    // Avoid duplicate entries for the same day unless weight really changed
+    if (!lastEntry || lastEntry.date !== today || lastEntry.weight !== finalProfile.weight) {
+        finalProfile.weightHistory = [...history, { date: today, weight: finalProfile.weight }];
+    } else {
+        finalProfile.weightHistory = history;
+    }
+    return finalProfile;
+};
+
 const App: React.FC = () => {
   // Start in 'auth' view by default
   const [view, setView] = useState<ViewState>('auth');
@@ -103,9 +119,8 @@ const App: React.FC = () => {
     };
   }, [currentUser, view]); // Added view dependency to help with the smart redirect logic
 
-  const handleOnboardingComplete = async (profile: UserProfile) => {
+  const handleOnboardingComplete = async (profile: UserProfile, initialPantryItems?: string[]) => {
     if (!currentUser) {
-        // Safety net: if for some reason user is null here
         try {
             const { signInGoogle } = await import('./services/firebase');
             await signInGoogle();
@@ -116,24 +131,32 @@ const App: React.FC = () => {
         }
     }
     
-    // Check if we are editing an existing profile or creating a new one
     const wasEditing = view === 'edit-profile';
 
-    // Append weight history if weight changed or if it's new
-    let updatedProfile = { ...profile };
-    if (updatedProfile.weight) {
-         const today = new Date().toISOString().split('T')[0];
-         const history = userProfile?.weightHistory || [];
-         const lastEntry = history[history.length - 1];
-         
-         if (!lastEntry || lastEntry.date !== today || lastEntry.weight !== updatedProfile.weight) {
-             updatedProfile.weightHistory = [...history, { date: today, weight: updatedProfile.weight }];
-         } else {
-             updatedProfile.weightHistory = history;
-         }
-    }
+    // Use shared helper for weight history
+    const updatedProfile = updateWeightHistory(profile, userProfile?.weightHistory || []);
 
     await saveUserProfile(currentUser.uid, updatedProfile);
+
+    // Handle Initial Pantry Items (Only during onboarding, not editing)
+    if (!wasEditing && initialPantryItems && initialPantryItems.length > 0) {
+        try {
+            const promises = initialPantryItems.map(name => {
+                const newItem: Ingredient = {
+                    id: Date.now().toString() + Math.random().toString().substr(2, 5),
+                    name: name,
+                    quantity: '1', 
+                    isSelected: true,
+                    isScanned: false,
+                    unit: 'unit'
+                };
+                return addPantryItem(currentUser.uid, newItem);
+            });
+            await Promise.all(promises);
+        } catch (error) {
+            console.error("Error adding initial pantry items:", error);
+        }
+    }
     
     if (wasEditing) {
         setView('profile');
@@ -189,23 +212,8 @@ const App: React.FC = () => {
   const handleSaveProfile = async (updatedProfile: UserProfile) => {
     if (!currentUser || !userProfile) return;
 
-    // Handle Weight History Logic
-    let finalProfile = { ...updatedProfile };
-    
-    // If weight changed, append to history
-    if (finalProfile.weight !== userProfile.weight) {
-         const today = new Date().toISOString().split('T')[0];
-         const history = userProfile.weightHistory || [];
-         const lastEntry = history[history.length - 1];
-         
-         // Avoid duplicate entries for the same day unless weight really changed
-         if (!lastEntry || lastEntry.date !== today || lastEntry.weight !== finalProfile.weight) {
-             finalProfile.weightHistory = [...history, { date: today, weight: finalProfile.weight }];
-         }
-    } else {
-        // Ensure history isn't lost if the user object didn't have it fully populated
-        finalProfile.weightHistory = userProfile.weightHistory;
-    }
+    // Use shared helper for weight history
+    const finalProfile = updateWeightHistory(updatedProfile, userProfile.weightHistory || []);
 
     await saveUserProfile(currentUser.uid, finalProfile);
   };
@@ -236,7 +244,20 @@ const App: React.FC = () => {
 
   const onPantryAdd = async (item: Ingredient) => {
     if (!currentUser) return;
-    await addPantryItem(currentUser.uid, item);
+    
+    // Safety check to prevent duplicates if the view layer misses it
+    const existingItem = pantry.find(i => i.name.toLowerCase() === item.name.toLowerCase());
+    if (existingItem) {
+        await updatePantryItem(currentUser.uid, existingItem.id, { 
+            quantity: item.quantity || existingItem.quantity, 
+            isSelected: true,
+            // Merge other fields if new item has better data
+            nutrition: item.nutrition || existingItem.nutrition,
+            image: item.image || existingItem.image
+        });
+    } else {
+        await addPantryItem(currentUser.uid, item);
+    }
   };
 
   const onPantryUpdate = async (item: Ingredient) => {
@@ -269,8 +290,6 @@ const App: React.FC = () => {
           } else if (action === 'remove') {
               updatedProfile = { ...updatedProfile, [field]: currentList.filter((i: string) => i.toLowerCase() !== finalValue.toLowerCase()) };
           } else if (action === 'set') {
-              // If AI tries to 'set' an allergy, we assume it replaces the list OR adds it if list was empty?
-              // Safer to just add it to be robust, or replace if it's a list
               if (Array.isArray(finalValue)) {
                   updatedProfile = { ...updatedProfile, [field]: finalValue };
               } else {
@@ -280,7 +299,6 @@ const App: React.FC = () => {
       } 
       // SCALAR FIELDS (Name, Height, Weight, Age, Goal)
       else {
-          // For scalar fields, 'add' or 'set' implies replacing the value
           updatedProfile = { ...updatedProfile, [field]: finalValue };
       }
       
@@ -322,10 +340,6 @@ const App: React.FC = () => {
                         whileHover={{ scale: 1.05, y: -2 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => {
-                            // Logic for Floating Button:
-                            // If there are generated recipes, go to 'generated-recipes'.
-                            // Else if pantry has items, generate.
-                            // Else go to pantry.
                             if (generatedRecipes.length > 0) setView('generated-recipes');
                             else if (pantry.length > 0) handleGenerateRecipes();
                             else setView('pantry');

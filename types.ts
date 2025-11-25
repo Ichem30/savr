@@ -30,6 +30,7 @@ export interface UserProfile {
   targetWeight?: number;
   activityLevel?: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
   weeklyGoal?: number; // kg per week, e.g. -0.5, 0, 0.25
+  photoURL?: string;
 }
 
 export interface Ingredient {

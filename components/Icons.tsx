@@ -55,7 +55,15 @@ import {
   Cake,
   Activity,
   Flag,
-  Calendar
+  Calendar,
+  Ruler,
+  Armchair,
+  TrendingDown,
+  Anchor,
+  BicepsFlexed,
+  AlertTriangle,
+  ThumbsDown,
+  Settings
 } from 'lucide-react';
 
 export const Icons = {
@@ -117,5 +125,13 @@ export const Icons = {
   Cake,
   Activity,
   Flag,
-  Calendar
+  Calendar,
+  Ruler,
+  Armchair,
+  TrendingDown,
+  Anchor,
+  BicepsFlexed,
+  AlertTriangle,
+  ThumbsDown,
+  Settings
 };

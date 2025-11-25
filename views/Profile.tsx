@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { UserProfile, FitnessGoal, DailyLog } from '../types';
 import { Icons } from '../components/Icons';
-import { auth, signInGoogle, logOut, subscribeToDailyLog } from '../services/firebase';
+import { auth, signInGoogle, logOut, subscribeToDailyLog, uploadProfileImage } from '../services/firebase';
 import { calculateDailyTargets } from '../utils/nutrition';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
@@ -923,8 +923,10 @@ const ProfileEditor: React.FC<{ user: UserProfile; onSave: (u: UserProfile) => P
     );
 };
 
-const ProfileDashboard: React.FC<{ user: UserProfile; onEdit: () => void; onOpenGoals: () => void; onOpenProgress: () => void }> = ({ user, onEdit, onOpenGoals, onOpenProgress }) => {
+const ProfileDashboard: React.FC<{ user: UserProfile; onEdit: () => void; onOpenGoals: () => void; onOpenProgress: () => void; onUpdateUser: (updates: Partial<UserProfile>) => Promise<void> }> = ({ user, onEdit, onOpenGoals, onOpenProgress, onUpdateUser }) => {
     const [logData, setLogData] = useState<DailyLog | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [uploading, setUploading] = useState(false);
 
     const targets = calculateDailyTargets(user);
     const currentDate = new Date().toISOString().split('T')[0];
@@ -937,12 +939,26 @@ const ProfileDashboard: React.FC<{ user: UserProfile; onEdit: () => void; onOpen
         return () => unsubscribe();
     }, [currentDate]);
 
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0] && auth.currentUser) {
+            setUploading(true);
+            try {
+                const url = await uploadProfileImage(auth.currentUser.uid, e.target.files[0]);
+                await onUpdateUser({ photoURL: url });
+            } catch (error) {
+                console.error("Error uploading profile image:", error);
+                alert("Erreur lors du téléchargement de l'image.");
+            } finally {
+                setUploading(false);
+            }
+        }
+    };
+
     const consumed = logData?.consumed || 0;
     const burned = logData?.burned || 0;
     const remaining = targets.calories - consumed + burned;
 
     // Correct Calculation for Progress Bar
-    // Find true start weight from history or current
     const history = [...(user.weightHistory || [])].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     const startWeight = history.length > 0 ? history[0].weight : user.weight;
     const currentWeight = user.weight;
@@ -965,10 +981,9 @@ const ProfileDashboard: React.FC<{ user: UserProfile; onEdit: () => void; onOpen
         if (currentWeight <= targetWeight) {
             statusMessage = "Objectif atteint ! Bravo !";
         } else {
-            // Estimate weeks remaining
             const remainingWeight = currentWeight - targetWeight;
-            const weeklyRate = Math.abs(user.weeklyGoal || 0.5); // Default to 0.5 if not set or 0
-            const weeksRemaining = weeklyRate > 0 ? Math.ceil(remainingWeight / weeklyRate) : 4; // Fallback 4
+            const weeklyRate = Math.abs(user.weeklyGoal || 0.5);
+            const weeksRemaining = weeklyRate > 0 ? Math.ceil(remainingWeight / weeklyRate) : 4;
             statusMessage = `plus que ${weeksRemaining} semaines avant d'atteindre votre objectif !`;
         }
     } else {
@@ -991,6 +1006,14 @@ const ProfileDashboard: React.FC<{ user: UserProfile; onEdit: () => void; onOpen
 
     return (
         <div className="flex flex-col h-full bg-gray-50 relative overflow-y-auto pb-32">
+            <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleFileChange} 
+                className="hidden" 
+                accept="image/*"
+            />
+
             {/* Header */}
             <div className="px-6 py-6 flex justify-between items-center">
                 <h1 className="text-3xl font-black text-gray-800">Profil</h1>
@@ -1006,14 +1029,29 @@ const ProfileDashboard: React.FC<{ user: UserProfile; onEdit: () => void; onOpen
 
             {/* Main Card */}
             <div className="px-6 mb-6">
-                <div onClick={onEdit} className="bg-white rounded-[32px] p-6 shadow-lg shadow-slate-200/50 border border-gray-100 relative overflow-hidden cursor-pointer transition-transform active:scale-[0.98]">
+                <div className="bg-white rounded-[32px] p-6 shadow-lg shadow-slate-200/50 border border-gray-100 relative overflow-hidden transition-transform active:scale-[0.98]">
                     <div className="absolute -top-10 -right-10 w-40 h-40 bg-blue-50 rounded-full blur-3xl opacity-50 pointer-events-none" />
                     
                     <div className="flex items-start gap-5 mb-8 relative z-10">
-                        <div className="w-20 h-20 rounded-full bg-slate-50 flex items-center justify-center border-4 border-white shadow-sm">
-                            <SafeIcon icon={Icons.User} size={36} className="text-slate-300" />
-                        </div>
-                        <div className="flex-1 pt-1">
+                        <button 
+                            onClick={() => fileInputRef.current?.click()} 
+                            className="relative w-20 h-20 rounded-full bg-slate-50 flex items-center justify-center border-4 border-white shadow-sm overflow-hidden group"
+                        >
+                            {user.photoURL ? (
+                                <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" />
+                            ) : (
+                                <SafeIcon icon={Icons.User} size={36} className="text-slate-300" />
+                            )}
+                            {uploading && (
+                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                </div>
+                            )}
+                            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <SafeIcon icon={Icons.Edit} size={16} className="text-white" />
+                            </div>
+                        </button>
+                        <div className="flex-1 pt-1" onClick={onEdit} style={{ cursor: 'pointer' }}>
                             <h2 className="text-2xl font-black text-gray-800 mb-1">{user.name || 'Utilisateur'}</h2>
                             <div className="flex flex-wrap gap-y-1 gap-x-3 text-sm font-medium text-gray-500">
                                 <div className="flex items-center gap-1.5">
@@ -1032,7 +1070,6 @@ const ProfileDashboard: React.FC<{ user: UserProfile; onEdit: () => void; onOpen
                                 </div>
                             </div>
                         </div>
-                        <SafeIcon icon={Icons.Edit} size={20} className="text-gray-300" />
                     </div>
 
                     <div className="flex justify-between items-end px-2 relative z-10">
@@ -1166,6 +1203,7 @@ export const Profile: React.FC<ProfileProps> = ({ user, onSave }) => {
                         onEdit={() => setMode('edit')} 
                         onOpenGoals={() => setMode('goals')} 
                         onOpenProgress={() => setMode('progress')}
+                        onUpdateUser={handleUpdateUser}
                     />
                 </motion.div>
             )}
