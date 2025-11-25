@@ -28,7 +28,9 @@ import {
   updateDoc, 
   onSnapshot,
   query,
-  orderBy
+  orderBy,
+  limit,
+  getDocs
 } from "firebase/firestore";
 import { UserProfile, Ingredient, Recipe } from "../types";
 
@@ -202,8 +204,27 @@ export const deletePantryItem = async (uid: string, itemId: string) => {
 
 // --- Recipes ---
 
+export const subscribeToSavedRecipes = (uid: string, callback: (recipes: Recipe[]) => void) => {
+  const q = query(collection(db, "users", uid, "recipes")); // OrderBy removed if 'id' is just random string, or add orderBy timestamp if added
+  return onSnapshot(q, (querySnapshot) => {
+    const recipes: Recipe[] = [];
+    querySnapshot.forEach((doc) => {
+      recipes.push({ ...doc.data(), id: doc.id } as Recipe);
+    });
+    callback(recipes);
+  }, (error) => {
+      console.error("Recipe Subscription Error:", error);
+  });
+};
+
 export const saveRecipe = async (uid: string, recipe: Recipe) => {
-  await addDoc(collection(db, "users", uid, "recipes"), recipe);
+  // We remove the 'id' if it exists to let Firestore generate one, or use setDoc if we want to preserve ID
+  const { id, ...recipeData } = recipe;
+  await addDoc(collection(db, "users", uid, "recipes"), recipeData);
+};
+
+export const deleteSavedRecipe = async (uid: string, recipeId: string) => {
+    await deleteDoc(doc(db, "users", uid, "recipes", recipeId));
 };
 
 // --- Backend functions ---
@@ -213,4 +234,143 @@ export const generateRecipesCloud = async (userProfile: any, ingredients: any[],
   const generateFn = httpsCallable(functions, 'generateRecipes');
   const result = await generateFn({ userProfile, ingredients, strictMode });
   return result.data;
+};
+
+// --- Journal / Daily Logs ---
+
+export const subscribeToDailyLog = (uid: string, date: string, callback: (log: any) => void) => {
+  const docRef = doc(db, "users", uid, "daily_logs", date);
+  return onSnapshot(docRef, (docSnap) => {
+    if (docSnap.exists()) {
+      callback(docSnap.data());
+    } else {
+      callback({
+        date,
+        consumed: 0,
+        burned: 0,
+        water: 0,
+        meals: [],
+      });
+    }
+  });
+};
+
+export const addMealToLog = async (uid: string, date: string, meal: any) => {
+  const docRef = doc(db, "users", uid, "daily_logs", date);
+  const docSnap = await getDoc(docRef);
+  
+  if (docSnap.exists()) {
+    const data = docSnap.data();
+    const updatedMeals = [...(data.meals || []), meal];
+    const totalCals = updatedMeals.reduce((acc: number, m: any) => acc + m.calories, 0);
+    
+    await updateDoc(docRef, {
+      meals: updatedMeals,
+      consumed: totalCals
+    });
+  } else {
+    await setDoc(docRef, {
+      date,
+      meals: [meal],
+      consumed: meal.calories,
+      burned: 0,
+      water: 0
+    });
+    await updateStreak(uid, date);
+  }
+};
+
+export const updateMealInLog = async (uid: string, date: string, meal: any) => {
+    const docRef = doc(db, "users", uid, "daily_logs", date);
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists()) {
+        const data = docSnap.data();
+        const updatedMeals = (data.meals || []).map((m: any) => 
+            m.id === meal.id ? meal : m
+        );
+        const totalCals = updatedMeals.reduce((acc: number, m: any) => acc + m.calories, 0);
+        
+        await updateDoc(docRef, {
+            meals: updatedMeals,
+            consumed: totalCals
+        });
+    }
+};
+
+export const deleteMealFromLog = async (uid: string, date: string, mealId: string) => {
+    const docRef = doc(db, "users", uid, "daily_logs", date);
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists()) {
+        const data = docSnap.data();
+        const updatedMeals = (data.meals || []).filter((m: any) => m.id !== mealId);
+        const totalCals = updatedMeals.reduce((acc: number, m: any) => acc + m.calories, 0);
+        
+        await updateDoc(docRef, {
+            meals: updatedMeals,
+            consumed: totalCals
+        });
+    }
+};
+
+export const updateWaterLog = async (uid: string, date: string, amount: number) => {
+    const docRef = doc(db, "users", uid, "daily_logs", date);
+    await setDoc(docRef, { water: amount, date }, { merge: true });
+    await updateStreak(uid, date);
+};
+
+const updateStreak = async (uid: string, logDate: string) => {
+    const userRef = doc(db, "users", uid);
+    const userSnap = await getDoc(userRef);
+    if(!userSnap.exists()) return;
+    
+    const userData = userSnap.data() as UserProfile;
+    const currentStreak = userData.streak?.current || 0;
+    const lastLogDate = userData.streak?.lastLogDate || "";
+    
+    const today = new Date().toISOString().split('T')[0];
+    if (logDate !== today) return; 
+    
+    if (lastLogDate === today) return; 
+    
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    
+    let newStreak = 1;
+    if (lastLogDate === yesterdayStr) {
+        newStreak = currentStreak + 1;
+    }
+    
+    await updateDoc(userRef, {
+        streak: {
+            current: newStreak,
+            lastLogDate: today
+        }
+    });
+};
+
+// --- Global Food Cache ---
+
+export const saveFoodToCache = async (uid: string, product: any) => {
+    // Use barcode as ID if available, else create unique based on name/time
+    const docId = product.id && product.id.length > 5 ? product.id : `gen_${Date.now()}`;
+    await setDoc(doc(db, "users", uid, "saved_foods", docId), product, { merge: true });
+};
+
+export const searchCachedFoods = async (uid: string, queryStr: string) => {
+    // Fetch recent items and filter locally
+    const q = query(collection(db, "users", uid, "saved_foods"), limit(50));
+    const snapshot = await getDocs(q);
+    const results: any[] = [];
+    const lowerQuery = queryStr.toLowerCase();
+    
+    snapshot.forEach(doc => {
+        const data = doc.data();
+        if (data.product_name && data.product_name.toLowerCase().includes(lowerQuery)) {
+            results.push({ ...data, id: doc.id });
+        }
+    });
+    return results;
 };

@@ -12,6 +12,10 @@ export interface UserProfile {
   dislikes: string[];
   isOnboarded: boolean;
   weightHistory?: { date: string, weight: number }[];
+  streak?: {
+    current: number;
+    lastLogDate: string;
+  };
 }
 
 export interface Ingredient {
@@ -55,4 +59,24 @@ export interface ChatMessage {
   isFunctionCall?: boolean;
 }
 
-export type ViewState = 'auth' | 'onboarding' | 'edit-profile' | 'pantry' | 'recipes' | 'recipe-detail' | 'cooking-mode' | 'profile';
+export type ViewState = 'auth' | 'onboarding' | 'edit-profile' | 'pantry' | 'recipes' | 'recipe-detail' | 'cooking-mode' | 'profile' | 'journal';
+
+export interface MealEntry {
+  id: string;
+  name: string;
+  calories: number;
+  type: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+}
+
+export interface DailyLog {
+  date: string;
+  consumed: number; // calories
+  burned: number;
+  water: number; // ml
+  meals: MealEntry[];
+  macros: {
+    carbs: { current: number, target: number };
+    protein: { current: number, target: number };
+    fats: { current: number, target: number };
+  }
+}

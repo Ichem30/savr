@@ -2,10 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Recipe } from '../types';
 import { Icons } from '../components/Icons';
 import { motion, AnimatePresence } from 'framer-motion';
+import { addMealToLog, auth } from '../services/firebase';
 
 interface RecipeDetailProps {
   recipe: Recipe;
   onBack: () => void;
+  isSaved?: boolean;
+  onToggleSave?: (recipe: Recipe) => void;
 }
 
 const StepTimer = ({ duration, onComplete }: { duration: number, onComplete?: () => void }) => {
@@ -78,10 +81,39 @@ const RichInstruction = ({ text }: { text: string }) => {
     );
 };
 
-export const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onBack }) => {
+export const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onBack, isSaved, onToggleSave }) => {
   const [cookingMode, setCookingMode] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [showIngredients, setShowIngredients] = useState(false);
+
+  const handleAddToJournal = async () => {
+      if (!auth.currentUser) return;
+      
+      const now = new Date();
+      const hour = now.getHours();
+      let mealType = 'snack';
+      let mealLabel = 'En-cas';
+      if (hour < 11) { mealType = 'breakfast'; mealLabel = 'Petit déjeuner'; }
+      else if (hour < 15) { mealType = 'lunch'; mealLabel = 'Déjeuner'; }
+      else if (hour < 18) { mealType = 'snack'; mealLabel = 'En-cas'; }
+      else { mealType = 'dinner'; mealLabel = 'Dîner'; }
+
+      const dateStr = now.toISOString().split('T')[0];
+      
+      try {
+          await addMealToLog(auth.currentUser.uid, dateStr, {
+              id: Date.now().toString(),
+              name: recipe.title,
+              calories: recipe.calories,
+              type: mealType,
+              recipeId: recipe.id
+          });
+          // Simple feedback visual could be better but alert works for functional requirement
+          alert(`Recette ajoutée au ${mealLabel} !`);
+      } catch (e) {
+          console.error(e);
+      }
+  };
 
   if (cookingMode) {
     const progress = ((currentStep + 1) / recipe.instructions.length) * 100;
@@ -143,15 +175,24 @@ export const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onBack }) =>
                     <RichInstruction text={recipe.instructions[currentStep]} />
 
                     {currentStep === recipe.instructions.length - 1 && (
-                        <motion.div 
-                        initial={{ scale: 0.8, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        transition={{ delay: 0.3 }}
-                        className="mt-8 p-4 bg-gradient-to-r from-emerald-500/20 to-primary/20 border border-emerald-500/30 rounded-xl text-emerald-300 flex items-center justify-center gap-3"
-                        >
-                        <div className="p-1.5 bg-emerald-500 rounded-full text-white shadow-lg shadow-emerald-500/20"><Icons.Check className="w-4 h-4" strokeWidth={3} /></div>
-                        <span className="font-bold tracking-wide">Final Step! Bon Appétit!</span>
-                        </motion.div>
+                        <div className="mt-8 flex flex-col gap-4">
+                            <motion.div 
+                                initial={{ scale: 0.8, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                transition={{ delay: 0.3 }}
+                                className="p-4 bg-gradient-to-r from-emerald-500/20 to-primary/20 border border-emerald-500/30 rounded-xl text-emerald-300 flex items-center justify-center gap-3"
+                            >
+                                <div className="p-1.5 bg-emerald-500 rounded-full text-white shadow-lg shadow-emerald-500/20"><Icons.Check className="w-4 h-4" strokeWidth={3} /></div>
+                                <span className="font-bold tracking-wide">Final Step! Bon Appétit!</span>
+                            </motion.div>
+                            
+                            <button 
+                                onClick={handleAddToJournal}
+                                className="w-full py-3 bg-white/10 hover:bg-white/20 border border-white/10 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"
+                            >
+                                <Icons.Book size={18} /> Ajouter au Journal
+                            </button>
+                        </div>
                     )}
                 </div>
             </motion.div>
@@ -243,6 +284,17 @@ export const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onBack }) =>
           <Icons.ArrowLeft size={20} className="text-gray-700" />
         </button>
         <h2 className="font-bold text-lg truncate flex-1 text-gray-800">{recipe.title}</h2>
+        {onToggleSave && (
+            <button 
+                onClick={() => onToggleSave(recipe)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            >
+                <Icons.Heart 
+                    size={24} 
+                    className={`transition-colors ${isSaved ? "fill-red-500 text-red-500" : "text-gray-400"}`} 
+                />
+            </button>
+        )}
       </motion.div>
 
       <motion.div 

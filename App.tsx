@@ -8,11 +8,13 @@ import { Pantry } from './views/Pantry';
 import { RecipeFeed } from './views/RecipeFeed';
 import { RecipeDetail } from './views/RecipeDetail';
 import { Profile } from './views/Profile';
+import { Journal } from './views/Journal';
 import { Icons } from './components/Icons';
 import { generateRecipes } from './services/geminiService';
 import { ChatAssistant } from './components/ChatAssistant';
 import { AnimatePresence, motion } from 'framer-motion';
 import { PageTransition } from './components/PageTransition';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { 
   auth, 
   subscribeToProfile, 
@@ -20,7 +22,10 @@ import {
   saveUserProfile, 
   addPantryItem, 
   deletePantryItem, 
-  updatePantryItem 
+  updatePantryItem,
+  subscribeToSavedRecipes,
+  saveRecipe,
+  deleteSavedRecipe
 } from './services/firebase';
 
 const App: React.FC = () => {
@@ -31,6 +36,7 @@ const App: React.FC = () => {
   const [pantry, setPantry] = useState<Ingredient[]>([]);
   
   const [generatedRecipes, setGeneratedRecipes] = useState<Recipe[]>([]);
+  const [savedRecipes, setSavedRecipes] = useState<Recipe[]>([]);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [loading, setLoading] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
@@ -83,9 +89,15 @@ const App: React.FC = () => {
       setPantry(items);
     });
 
+    // Subscribe to Saved Recipes
+    const unsubRecipes = subscribeToSavedRecipes(currentUser.uid, (recipes) => {
+      setSavedRecipes(recipes);
+    });
+
     return () => {
       unsubProfile();
       unsubPantry();
+      unsubRecipes();
     };
   }, [currentUser, view]); // Added view dependency to help with the smart redirect logic
 
@@ -156,6 +168,18 @@ const App: React.FC = () => {
   const handleRecipeSelect = (recipe: Recipe) => {
     setSelectedRecipe(recipe);
     setView('recipe-detail');
+  };
+
+  const handleToggleSaveRecipe = async (recipe: Recipe) => {
+      if (!currentUser) return;
+
+      const saved = savedRecipes.find(r => r.title === recipe.title);
+      
+      if (saved) {
+          await deleteSavedRecipe(currentUser.uid, saved.id);
+      } else {
+          await saveRecipe(currentUser.uid, recipe);
+      }
   };
 
   // New Logic for saving the FULL profile from the Profile View
@@ -266,43 +290,65 @@ const App: React.FC = () => {
 
     return (
       <div className="absolute bottom-6 left-0 right-0 px-6 z-50 flex justify-center pointer-events-none">
-        <div className="bg-white/90 backdrop-blur-xl border border-white/40 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-3xl flex justify-between items-center p-2 w-full max-w-[320px] pointer-events-auto relative">
+        <div className="bg-white/90 backdrop-blur-xl border border-white/40 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-3xl grid grid-cols-5 items-center p-2 w-full max-w-[360px] pointer-events-auto relative">
             
+            {/* Journal Tab */}
+            <button 
+                onClick={() => setView('journal')}
+                className={`flex flex-col items-center justify-center py-2.5 rounded-2xl transition-all duration-300 relative group ${view === 'journal' ? 'text-primary' : 'text-gray-400 hover:text-gray-600'}`}
+            >
+                <div className={`absolute inset-0 bg-primary/10 rounded-2xl scale-0 transition-transform duration-300 ${view === 'journal' ? 'scale-100' : 'group-hover:scale-50 opacity-0 group-hover:opacity-50'}`} />
+                <Icons.Book size={22} strokeWidth={view === 'journal' ? 2.5 : 2} className="relative z-10 transition-transform duration-300 group-active:scale-90" />
+                <span className={`text-[9px] font-bold mt-1 relative z-10 transition-opacity duration-300 ${view === 'journal' ? 'opacity-100' : 'opacity-70'}`}>Journal</span>
+            </button>
+
             {/* Pantry Tab */}
             <button 
                 onClick={() => setView('pantry')}
-                className={`flex-1 flex flex-col items-center justify-center py-2.5 rounded-2xl transition-all duration-300 relative group ${view === 'pantry' ? 'text-primary' : 'text-gray-400 hover:text-gray-600'}`}
+                className={`flex flex-col items-center justify-center py-2.5 rounded-2xl transition-all duration-300 relative group ${view === 'pantry' ? 'text-primary' : 'text-gray-400 hover:text-gray-600'}`}
             >
                 <div className={`absolute inset-0 bg-primary/10 rounded-2xl scale-0 transition-transform duration-300 ${view === 'pantry' ? 'scale-100' : 'group-hover:scale-50 opacity-0 group-hover:opacity-50'}`} />
-                <Icons.Refrigerator size={24} strokeWidth={view === 'pantry' ? 2.5 : 2} className="relative z-10 transition-transform duration-300 group-active:scale-90" />
-                <span className={`text-[10px] font-bold mt-1 relative z-10 transition-opacity duration-300 ${view === 'pantry' ? 'opacity-100' : 'opacity-70'}`}>Pantry</span>
+                <Icons.Refrigerator size={22} strokeWidth={view === 'pantry' ? 2.5 : 2} className="relative z-10 transition-transform duration-300 group-active:scale-90" />
+                <span className={`text-[9px] font-bold mt-1 relative z-10 transition-opacity duration-300 ${view === 'pantry' ? 'opacity-100' : 'opacity-70'}`}>Pantry</span>
             </button>
 
-            {/* Center Action Button - Floating above */}
-            <div className="relative -mt-12 mx-2">
-                <motion.button
-                    whileHover={{ scale: 1.05, y: -2 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => {
-                        if (generatedRecipes.length > 0) setView('recipes');
-                        else if (pantry.length > 0) handleGenerateRecipes();
-                        else setView('pantry');
-                    }} 
-                    className="w-16 h-16 bg-gradient-to-br from-primary to-emerald-600 text-white rounded-full flex items-center justify-center shadow-lg shadow-primary/30 border-4 border-gray-50 relative z-10 overflow-hidden group"
-                >
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <Icons.ChefHat size={30} className="drop-shadow-md" />
-                </motion.button>
+            {/* Center Space for Floating Button */}
+            <div className="relative flex justify-center">
+                 <div className="absolute -top-12">
+                    <motion.button
+                        whileHover={{ scale: 1.05, y: -2 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => {
+                            if (generatedRecipes.length > 0) setView('recipes');
+                            else if (pantry.length > 0) handleGenerateRecipes();
+                            else setView('pantry');
+                        }} 
+                        className="w-14 h-14 bg-gradient-to-br from-primary to-emerald-600 text-white rounded-full flex items-center justify-center shadow-lg shadow-primary/30 border-4 border-gray-50 relative z-10 overflow-hidden group"
+                    >
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <Icons.ChefHat size={26} className="drop-shadow-md" />
+                    </motion.button>
+                </div>
             </div>
+
+            {/* Recipes Tab (or Saved) */}
+            <button 
+                onClick={() => setView('recipes')}
+                className={`flex flex-col items-center justify-center py-2.5 rounded-2xl transition-all duration-300 relative group ${view === 'recipes' ? 'text-primary' : 'text-gray-400 hover:text-gray-600'}`}
+            >
+                <div className={`absolute inset-0 bg-primary/10 rounded-2xl scale-0 transition-transform duration-300 ${view === 'recipes' ? 'scale-100' : 'group-hover:scale-50 opacity-0 group-hover:opacity-50'}`} />
+                <Icons.Utensils size={22} strokeWidth={view === 'recipes' ? 2.5 : 2} className="relative z-10 transition-transform duration-300 group-active:scale-90" />
+                <span className={`text-[9px] font-bold mt-1 relative z-10 transition-opacity duration-300 ${view === 'recipes' ? 'opacity-100' : 'opacity-70'}`}>Recettes</span>
+            </button>
 
             {/* Profile Tab */}
             <button 
                 onClick={() => setView('profile')}
-                className={`flex-1 flex flex-col items-center justify-center py-2.5 rounded-2xl transition-all duration-300 relative group ${view === 'profile' ? 'text-primary' : 'text-gray-400 hover:text-gray-600'}`}
+                className={`flex flex-col items-center justify-center py-2.5 rounded-2xl transition-all duration-300 relative group ${view === 'profile' ? 'text-primary' : 'text-gray-400 hover:text-gray-600'}`}
             >
                 <div className={`absolute inset-0 bg-primary/10 rounded-2xl scale-0 transition-transform duration-300 ${view === 'profile' ? 'scale-100' : 'group-hover:scale-50 opacity-0 group-hover:opacity-50'}`} />
-                <Icons.User size={24} strokeWidth={view === 'profile' ? 2.5 : 2} className="relative z-10 transition-transform duration-300 group-active:scale-90" />
-                <span className={`text-[10px] font-bold mt-1 relative z-10 transition-opacity duration-300 ${view === 'profile' ? 'opacity-100' : 'opacity-70'}`}>Profile</span>
+                <Icons.User size={22} strokeWidth={view === 'profile' ? 2.5 : 2} className="relative z-10 transition-transform duration-300 group-active:scale-90" />
+                <span className={`text-[9px] font-bold mt-1 relative z-10 transition-opacity duration-300 ${view === 'profile' ? 'opacity-100' : 'opacity-70'}`}>Profile</span>
             </button>
 
         </div>
@@ -316,6 +362,7 @@ const App: React.FC = () => {
 
   return (
     <div className="bg-gray-200 min-h-screen flex justify-center font-sans">
+      <ErrorBoundary>
       <div ref={appConstraintsRef} className="w-full sm:max-w-[400px] sm:h-[850px] sm:my-auto bg-white sm:rounded-[3rem] sm:border-8 sm:border-gray-900 h-screen shadow-2xl overflow-hidden flex flex-col relative">
         <div className="h-6 w-full bg-transparent absolute top-0 z-50 sm:block hidden" />
         
@@ -363,10 +410,13 @@ const App: React.FC = () => {
             {view === 'recipes' && (
               <PageTransition key="recipes">
                 <RecipeFeed 
-                  recipes={generatedRecipes} 
+                  recipes={generatedRecipes.length > 0 ? generatedRecipes : savedRecipes} 
                   loading={loading} 
                   onSelectRecipe={handleRecipeSelect}
                   onBack={() => setView('pantry')}
+                  savedRecipeTitles={savedRecipes.map(r => r.title)}
+                  onToggleSave={handleToggleSaveRecipe}
+                  title={generatedRecipes.length > 0 ? "Suggested Recipes" : "My Cookbook"}
                 />
               </PageTransition>
             )}
@@ -376,6 +426,8 @@ const App: React.FC = () => {
                 <RecipeDetail 
                   recipe={selectedRecipe} 
                   onBack={() => setView('recipes')} 
+                  isSaved={savedRecipes.some(r => r.title === selectedRecipe.title)}
+                  onToggleSave={handleToggleSaveRecipe}
                 />
               </PageTransition>
             )}
@@ -383,6 +435,12 @@ const App: React.FC = () => {
             {view === 'profile' && userProfile && (
                <PageTransition key="profile">
                  <Profile user={userProfile} onSave={handleSaveProfile} />
+               </PageTransition>
+            )}
+
+            {view === 'journal' && (
+               <PageTransition key="journal">
+                 <Journal user={userProfile} savedRecipes={savedRecipes} onNavigate={setView} />
                </PageTransition>
             )}
           </AnimatePresence>
@@ -407,6 +465,7 @@ const App: React.FC = () => {
             />
         )}
       </div>
+      </ErrorBoundary>
     </div>
   );
 };

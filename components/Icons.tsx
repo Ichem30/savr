@@ -45,7 +45,10 @@ import {
   Coffee,
   Apple,
   Sunset,
-  Sunrise
+  Sunrise,
+  Droplet,
+  Book,
+  Minus
 } from 'lucide-react';
 
 export const Icons = {
@@ -53,6 +56,7 @@ export const Icons = {
   Utensils,
   User,
   Plus,
+  Minus,
   Trash2,
   Trash: Trash2, // Alias for Trash
   Edit: Edit2,   // Alias for Edit
@@ -97,5 +101,7 @@ export const Icons = {
   Coffee,
   Apple,
   Sunset,
-  Sunrise
+  Sunrise,
+  Droplet,
+  Book
 };

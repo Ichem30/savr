@@ -5,6 +5,9 @@ import { Html5Qrcode } from "html5-qrcode";
 import { IngredientContextMenu } from '../components/IngredientContextMenu';
 import { ModernSelect } from '../components/ModernSelect';
 import { motion, AnimatePresence } from 'framer-motion';
+import { searchProducts, getProductByBarcode, searchLocalProducts, ProductResult } from '../services/foodApi';
+
+import { FoodDetailModal } from '../components/FoodDetailModal';
 
 interface PantryProps {
   pantry: Ingredient[];
@@ -24,6 +27,15 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
   const [strictMode, setStrictMode] = useState(false);
   const [filterQuery, setFilterQuery] = useState('');
   
+  // Search State
+  const [searchResults, setSearchResults] = useState<ProductResult[]>([]);
+  const [showResults, setShowResults] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Edit Modal State
+  const [selectedForEdit, setSelectedForEdit] = useState<Ingredient | null>(null);
+  
   // Generation Options
   const [selectedMeal, setSelectedMeal] = useState<string | undefined>(undefined);
   const [selectedTime, setSelectedTime] = useState<string | undefined>(undefined);
@@ -32,6 +44,30 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
   // Scanner State (Moved to App.tsx, using props now)
   const [scanError, setScanError] = useState<string | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
+
+  // Search Effect
+  useEffect(() => {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+      
+      if (input.trim().length < 2) {
+          setSearchResults([]);
+          setShowResults(false);
+          return;
+      }
+
+      setIsSearching(true);
+      setShowResults(true);
+      
+      searchTimeoutRef.current = setTimeout(async () => {
+          const results = await searchProducts(input);
+          setSearchResults(results);
+          setIsSearching(false);
+      }, 400);
+
+      return () => {
+          if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+      };
+  }, [input]);
 
   // ... Scanner Effects (Same as before) ...
   useEffect(() => {
@@ -86,27 +122,23 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
       setIsScanning(false);
 
       try {
-          const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
-          const data = await response.json();
-
-          if (data.status === 1) {
-              const product = data.product;
-              const productName = product.product_name_en || product.product_name || product.generic_name || "Unknown Product";
-              
+          const product = await getProductByBarcode(barcode);
+          
+          if (product) {
               // Check if exists using props
-              const existing = pantry.find(p => p.name.toLowerCase() === productName.toLowerCase());
+              const existing = pantry.find(p => p.name.toLowerCase() === product.product_name.toLowerCase());
               
               if (existing) {
                   onUpdate({ ...existing, isSelected: true, quantity: product.quantity || existing.quantity });
               } else {
                  const newItem: Ingredient = {
-                      id: Date.now().toString(), // will be replaced by firestore ID ideally
-                      name: productName,
-                      quantity: product.quantity || product.product_quantity || undefined,
+                      id: Date.now().toString(),
+                      name: product.product_name,
+                      quantity: product.quantity,
                       isSelected: true,
                       isScanned: true,
-                      brand: product.brands || undefined,
-                      image: product.image_front_small_url || product.image_url || undefined,
+                      brand: product.brands,
+                      image: product.image_url,
                       nutrition: {
                           calories: product.nutriments?.['energy-kcal_100g'],
                           protein: product.nutriments?.proteins_100g,
@@ -126,11 +158,30 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
       }
   };
 
-  const addIngredient = () => {
-    const valueToAdd = input;
-    if (!valueToAdd.trim()) return;
+  const detectNutrition = (term: string) => {
+      try {
+        const localMatches = searchLocalProducts(term);
+        const bestMatch = localMatches.find(p => p.product_name.toLowerCase() === term.toLowerCase());
+        if (bestMatch) return bestMatch;
+        
+        if (searchResults.length > 0) {
+             const topResult = searchResults[0];
+             if (topResult.product_name.toLowerCase().includes(term.toLowerCase())) {
+                 return topResult;
+             }
+        }
+      } catch (e) {
+          console.warn("Detection error", e);
+      }
+      return null;
+  };
+
+  const addIngredient = (customName?: string, forceCustom: boolean = false) => {
+    const val = typeof customName === 'string' ? customName : input;
+    if (!val || !val.trim()) return;
+    const valueToAdd = val.trim();
     
-    const existing = pantry.find(p => p.name.toLowerCase() === valueToAdd.trim().toLowerCase());
+    const existing = pantry.find(p => p.name.toLowerCase() === valueToAdd.toLowerCase());
     
     if (existing) {
         onUpdate({ 
@@ -139,17 +190,85 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
             quantity: quantityInput.trim() || existing.quantity 
         });
     } else {
-        const newItem: Ingredient = {
-            id: Date.now().toString(),
-            name: valueToAdd.trim(),
-            quantity: quantityInput.trim() || undefined,
-            isSelected: true,
-            isScanned: false
-        };
-        onAdd(newItem);
+        try {
+            // Try to auto-detect nutrition
+            let detectedData = undefined;
+            let detectedImage = undefined;
+
+            if (!forceCustom) {
+                const match = detectNutrition(valueToAdd);
+                if (match) {
+                     detectedImage = match.image_url;
+                     detectedData = {
+                        calories: match.nutriments['energy-kcal_100g'],
+                        protein: match.nutriments['proteins_100g'],
+                        carbs: match.nutriments['carbohydrates_100g'],
+                        fats: match.nutriments['fat_100g']
+                     };
+                }
+            }
+
+            const newItem: Ingredient = {
+                id: Date.now().toString(),
+                name: valueToAdd,
+                quantity: quantityInput.trim() ? quantityInput.trim() : undefined, // Keep undefined locally if types allow, but ideally clean for firestore
+                // Wait, Interface says quantity?: string. 
+                // Let's assume we need to santize for Firestore in the service or here.
+                // Let's try null if type allows, or just empty string if not.
+                // Actually, better to construct object cleanly.
+                isSelected: true,
+                isScanned: !!detectedData,
+                image: detectedImage || undefined,
+                nutrition: detectedData || undefined
+            };
+            
+            // SANITIZE FOR FIRESTORE: Convert undefined to null or remove keys
+            const firestoreItem = JSON.parse(JSON.stringify(newItem)); // Brutal but effective way to remove undefined keys
+            onAdd(firestoreItem);
+        } catch (error) {
+            console.error("Add failed, using fallback", error);
+            const fallbackItem: Ingredient = {
+                id: Date.now().toString(),
+                name: valueToAdd,
+                quantity: quantityInput.trim() || undefined,
+                isSelected: true,
+                isScanned: false
+            };
+            const firestoreFallback = JSON.parse(JSON.stringify(fallbackItem));
+            onAdd(firestoreFallback);
+        }
     }
     setInput('');
     setQuantityInput('');
+    setShowResults(false);
+  };
+
+  const selectProduct = (product: ProductResult) => {
+      const existing = pantry.find(p => p.name.toLowerCase() === product.product_name.toLowerCase());
+      
+      if (existing) {
+          onUpdate({ ...existing, isSelected: true, quantity: quantityInput || product.quantity || existing.quantity });
+      } else {
+          const newItem: Ingredient = {
+              id: Date.now().toString(),
+              name: product.product_name,
+              quantity: quantityInput || product.quantity,
+              isSelected: true,
+              isScanned: true,
+              brand: product.brands,
+              image: product.image_url,
+              nutrition: {
+                  calories: product.nutriments?.['energy-kcal_100g'],
+                  protein: product.nutriments?.proteins_100g,
+                  carbs: product.nutriments?.carbohydrates_100g,
+                  fats: product.nutriments?.fat_100g,
+              }
+          };
+          onAdd(JSON.parse(JSON.stringify(newItem)));
+      }
+      setInput('');
+      setQuantityInput('');
+      setShowResults(false);
   };
 
   const handleEdit = (item: Ingredient) => {
@@ -252,7 +371,7 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
         )}
         </AnimatePresence>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 relative">
           <div className="flex-1 flex bg-gray-100 border-0 rounded-xl px-4 py-3 focus-within:ring-2 focus-within:ring-primary transition-all min-w-0">
              <input 
                 type="text"
@@ -281,6 +400,58 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
           >
             <Icons.Plus size={24} />
           </motion.button>
+
+          {/* Search Results Dropdown */}
+          <AnimatePresence>
+            {showResults && input.length >= 2 && (
+                <motion.div 
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="absolute top-full left-0 w-full bg-white rounded-xl shadow-xl border border-gray-100 mt-2 z-50 max-h-60 overflow-y-auto"
+                >
+                    {isSearching ? (
+                         <div className="p-4 text-center text-gray-400 text-xs flex items-center justify-center gap-2">
+                            <div className="w-3 h-3 border-2 border-gray-300 border-t-primary rounded-full animate-spin"></div>
+                            Searching...
+                         </div>
+                    ) : (
+                        <>
+                        {searchResults.map(product => (
+                            <div 
+                                key={product.id} 
+                                onClick={() => selectProduct(product)}
+                                className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0 transition-colors group"
+                            >
+                                {product.image_url ? (
+                                    <img src={product.image_url} className="w-10 h-10 rounded-lg object-cover bg-gray-100" alt="" />
+                                ) : (
+                                    <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
+                                        <Icons.ShoppingBag size={18} />
+                                    </div>
+                                )}
+                                <div className="min-w-0 flex-1 text-left">
+                                    <div className="font-bold text-gray-800 text-sm truncate group-hover:text-primary transition-colors">{product.product_name}</div>
+                                    {product.brands && <div className="text-xs text-gray-400 truncate">{product.brands}</div>}
+                                </div>
+                                <Icons.Plus size={16} className="text-gray-300 group-hover:text-primary shrink-0" />
+                            </div>
+                        ))}
+                        {/* Fallback Option */}
+                        <div 
+                            onClick={() => addIngredient(undefined, true)} 
+                            className="p-3 hover:bg-gray-50 cursor-pointer flex items-center gap-3 text-gray-500 border-t border-gray-100"
+                        >
+                            <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+                                <Icons.Edit size={18} />
+                            </div>
+                             <div className="text-sm font-medium">Add "<span className="font-bold text-gray-700">{input}</span>" as custom item</div>
+                        </div>
+                        </>
+                    )}
+                </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
@@ -334,14 +505,19 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
                                                 onEdit={() => handleEdit(item)}
                                                 onDelete={() => removeIngredient(item.id)}
                                             >
-                                                <div onClick={() => toggleIngredient(item)} className={`p-3 rounded-2xl flex items-center gap-3 shadow-sm cursor-pointer transition-all border ${isSelected ? 'bg-white border-primary ring-1 ring-primary/20' : 'bg-gray-50 border-transparent opacity-60'}`}>
+                                                <div onClick={() => setSelectedForEdit(item)} className={`p-3 rounded-2xl flex items-center gap-3 shadow-sm cursor-pointer transition-all border ${isSelected ? 'bg-white border-primary ring-1 ring-primary/20' : 'bg-gray-50 border-transparent opacity-60'}`}>
                                                     {item.image ? <img src={item.image} alt={item.name} className="w-12 h-12 rounded-lg object-cover bg-gray-100" /> : <div className="w-12 h-12 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-500"><Icons.ShoppingBag size={20} /></div>}
                                                     <div className="flex-1 min-w-0">
                                                         <p className="font-bold text-gray-800 truncate text-sm">{item.name}{item.quantity && <span className="font-normal text-gray-500 ml-2 text-xs">({item.quantity})</span>}</p>
                                                         {item.brand && <p className="text-xs text-gray-500 truncate">{item.brand}</p>}
                                                         {item.nutrition?.calories && <div className="flex items-center gap-2 mt-1 text-[10px] font-medium text-gray-400"><span className="text-orange-500">{Math.round(item.nutrition.calories)} kcal</span><span>•</span><span className="text-blue-500">{Math.round(item.nutrition.protein || 0)}g Pro</span></div>}
                                                     </div>
-                                                    <button onClick={(e) => removeIngredient(item.id, e)} className={`p-2 rounded-full transition-colors ${isSelected ? 'hover:bg-gray-100 text-gray-400' : 'hover:bg-gray-200 text-gray-500'}`}><Icons.X size={16} /></button>
+                                                    <button 
+                                                        onClick={(e) => { e.stopPropagation(); toggleIngredient(item); }} 
+                                                        className={`w-8 h-8 rounded-full flex items-center justify-center transition-all shrink-0 ${isSelected ? 'bg-primary text-white shadow-md shadow-primary/30' : 'bg-gray-200 text-white hover:bg-gray-300'}`}
+                                                    >
+                                                        {isSelected && <Icons.Check size={16} strokeWidth={3} />}
+                                                    </button>
                                                 </div>
                                             </IngredientContextMenu>
                                         </motion.div>
@@ -369,10 +545,15 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
                                             onEdit={() => handleEdit(item)}
                                             onDelete={() => removeIngredient(item.id)}
                                         >
-                                            <div onClick={() => toggleIngredient(item)} className={`pl-3 pr-1 py-1.5 rounded-full flex items-center gap-2 shadow-sm cursor-pointer transition-all border ${isSelected ? 'bg-emerald-50 border-primary text-emerald-800 ring-1 ring-primary' : 'bg-gray-100 border-transparent text-gray-400 opacity-60 hover:opacity-80'}`}>
+                                            <div onClick={() => setSelectedForEdit(item)} className={`pl-3 pr-1 py-1.5 rounded-full flex items-center gap-2 shadow-sm cursor-pointer transition-all border ${isSelected ? 'bg-emerald-50 border-primary text-emerald-800 ring-1 ring-primary' : 'bg-gray-100 border-transparent text-gray-400 opacity-60 hover:opacity-80'}`}>
                                                 <span className="font-medium text-sm select-none capitalize">{item.name}</span>
                                                 {item.quantity && <span className="text-[10px] text-gray-500 bg-white/80 px-1.5 py-0.5 rounded ml-1 border border-gray-200 font-normal">{item.quantity}</span>}
-                                                <button onClick={(e) => removeIngredient(item.id, e)} className={`p-1 rounded-full transition-colors ${isSelected ? 'hover:bg-emerald-100 text-emerald-600' : 'hover:bg-gray-200 text-gray-500'}`}><Icons.X size={14} /></button>
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); toggleIngredient(item); }} 
+                                                    className={`w-6 h-6 rounded-full flex items-center justify-center transition-all shrink-0 ml-1 ${isSelected ? 'bg-primary text-white' : 'bg-gray-300 text-white hover:bg-gray-400'}`}
+                                                >
+                                                    {isSelected && <Icons.Check size={12} strokeWidth={3} />}
+                                                </button>
                                             </div>
                                         </IngredientContextMenu>
                                     </motion.div>
@@ -388,16 +569,16 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
 
       {pantry.length > 0 && (
         <div className="absolute bottom-0 left-0 w-full px-6 pb-28 pt-6 space-y-3 bg-gradient-to-t from-gray-50 via-gray-50 to-transparent z-20">
-            {/* Preference Pills */}
-            <div className="flex flex-wrap gap-2 justify-start pb-2">
+            {/* Preference Pills - HIDDEN FOR NOW */}
+            {/* <div className="flex flex-wrap gap-2 justify-start pb-2">
                 <ModernSelect
-                    value={selectedMeal}
-                    onChange={(val) => setSelectedMeal(val || undefined)}
+                    value={selectedMeal || "all"}
+                    onChange={(val) => setSelectedMeal(val === "all" ? undefined : val)}
                     placeholder="Any Meal"
                     icon={Icons.Utensils}
                     className="flex-1 min-w-[100px] justify-center"
                     options={[
-                        { value: "", label: "Any Meal", icon: Icons.Utensils },
+                        { value: "all", label: "Any Meal" },
                         { value: "Breakfast", label: "Breakfast", icon: Icons.Sunrise },
                         { value: "Lunch", label: "Lunch", icon: Icons.Sun },
                         { value: "Dinner", label: "Dinner", icon: Icons.Moon },
@@ -406,13 +587,13 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
                 />
 
                 <ModernSelect
-                    value={selectedTime}
-                    onChange={(val) => setSelectedTime(val || undefined)}
+                    value={selectedTime || "all"}
+                    onChange={(val) => setSelectedTime(val === "all" ? undefined : val)}
                     placeholder="Any Time"
                     icon={Icons.Clock}
                     className="flex-1 min-w-[100px] justify-center"
                     options={[
-                        { value: "", label: "Any Time", icon: Icons.Clock },
+                        { value: "all", label: "Any Time" },
                         { value: "15 min", label: "15 min", icon: Icons.Clock },
                         { value: "30 min", label: "30 min", icon: Icons.Clock },
                         { value: "60 min", label: "60 min", icon: Icons.Clock }
@@ -420,19 +601,19 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
                 />
 
                 <ModernSelect
-                    value={selectedSkill}
-                    onChange={(val) => setSelectedSkill(val || undefined)}
+                    value={selectedSkill || "all"}
+                    onChange={(val) => setSelectedSkill(val === "all" ? undefined : val)}
                     placeholder="Any Level"
                     icon={Icons.TrendingUp}
                     className="flex-1 min-w-[100px] justify-center"
                     options={[
-                        { value: "", label: "Any Level", icon: Icons.TrendingUp },
+                        { value: "all", label: "Any Level" },
                         { value: "Beginner", label: "Beginner", icon: Icons.Leaf },
                         { value: "Intermediate", label: "Intermediate", icon: Icons.ChefHat },
                         { value: "Advanced", label: "Pro", icon: Icons.Flame }
                     ]}
                 />
-            </div>
+            </div> */}
 
             <motion.div 
                 whileTap={{ scale: 0.98 }}
@@ -455,6 +636,50 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
             </motion.button>
         </div>
       )}
+
+      {/* Edit Modal Overlay */}
+      <AnimatePresence>
+        {selectedForEdit && (
+            <FoodDetailModal 
+                product={{
+                    id: selectedForEdit.id,
+                    product_name: selectedForEdit.name,
+                    image_url: selectedForEdit.image,
+                    brands: selectedForEdit.brand,
+                    serving_size: "",
+                    quantity: selectedForEdit.quantity,
+                    nutriments: {
+                        'energy-kcal_100g': selectedForEdit.nutrition?.calories,
+                        'proteins_100g': selectedForEdit.nutrition?.protein,
+                        'carbohydrates_100g': selectedForEdit.nutrition?.carbs,
+                        'fat_100g': selectedForEdit.nutrition?.fats,
+                    }
+                }}
+                mealTypeLabel="Pantry"
+                onClose={() => setSelectedForEdit(null)}
+                onAdd={(name, cals, macros, quantity) => {
+                    onUpdate({
+                        ...selectedForEdit,
+                        name,
+                        quantity: quantity.toString(),
+                        nutrition: {
+                            calories: cals,
+                            protein: macros.protein,
+                            carbs: macros.carbs,
+                            fats: macros.fats
+                        }
+                    });
+                    setSelectedForEdit(null);
+                }}
+                initialAmount={parseFloat(selectedForEdit.quantity || "100")}
+                isEditing={true}
+                onDelete={() => {
+                    onRemove(selectedForEdit.id);
+                    setSelectedForEdit(null);
+                }}
+            />
+        )}
+      </AnimatePresence>
     </div>
   );
 };

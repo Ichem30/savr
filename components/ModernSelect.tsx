@@ -1,72 +1,102 @@
 import React from 'react';
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import { Icons } from './Icons';
+import * as Select from '@radix-ui/react-select';
+import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface Option {
   value: string;
   label: string;
-  icon?: any;
+  icon?: any; // Lucide Icon component
 }
 
 interface ModernSelectProps {
   value: string | undefined;
-  onChange: (value: string) => void;
+  onChange?: (value: string) => void; // Support onChange alias
+  onValueChange?: (value: string) => void; // Original Radix prop name
   options: Option[];
-  placeholder: string;
-  icon?: any;
+  placeholder?: string;
   className?: string;
+  contentClassName?: string;
+  icon?: any; // Leading icon for the trigger
 }
 
-export const ModernSelect: React.FC<ModernSelectProps> = ({
-  value,
+export const ModernSelect: React.FC<ModernSelectProps> = ({ 
+  value, 
   onChange,
-  options,
-  placeholder,
-  icon: Icon,
-  className = ""
+  onValueChange,
+  options, 
+  placeholder = "Select...",
+  className = "",
+  contentClassName = "",
+  icon: Icon
 }) => {
-  const selectedOption = options.find(o => o.value === value);
-  
-  return (
-    <DropdownMenu.Root>
-      <DropdownMenu.Trigger asChild>
-        <button 
-          className={`flex items-center gap-2 bg-white border border-gray-200 text-gray-700 text-xs font-bold py-2 px-4 rounded-full shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all whitespace-nowrap ${className}`}
-        >
-          {Icon && <Icon size={14} className="text-primary" />}
-          {selectedOption ? selectedOption.label : placeholder}
-          <Icons.ChevronDown size={12} className="text-gray-400 ml-1" />
-        </button>
-      </DropdownMenu.Trigger>
+  // Handle both prop names
+  const handleChange = (val: string) => {
+      if (onChange) onChange(val);
+      if (onValueChange) onValueChange(val);
+  };
 
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content 
-          className="min-w-[160px] bg-white rounded-xl shadow-xl border border-gray-100 p-1 z-50 animate-fade-in-up" 
-          sideOffset={5}
-          align="start"
+  // Ensure value is string (Radix doesn't like undefined controlled values)
+  const safeValue = value || "";
+
+  const selectedOption = options.find(o => o.value === safeValue);
+
+  return (
+    <Select.Root value={safeValue} onValueChange={handleChange}>
+      <Select.Trigger 
+        className={`flex items-center justify-between gap-2 px-3 py-3 rounded-xl text-sm font-bold bg-white border border-gray-200 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-sm ${className}`}
+      >
+        <div className="flex items-center gap-2 truncate">
+            {/* Only show generic Icon if NO option is selected OR if selected option has no icon */}
+            {Icon && (!selectedOption || !selectedOption.icon) && <Icon size={16} className="text-gray-400 shrink-0" />}
+            
+            {/* If selected, show label with icon, else placeholder */}
+            {selectedOption ? (
+                <span className="flex items-center gap-2 text-gray-800">
+                    {selectedOption.icon && <selectedOption.icon size={14} className="text-primary" />}
+                    {selectedOption.label}
+                </span>
+            ) : (
+                <span className="text-gray-400 font-medium">{placeholder}</span>
+            )}
+        </div>
+        
+        <Select.Icon className="text-gray-300">
+          <ChevronDown size={14} />
+        </Select.Icon>
+      </Select.Trigger>
+
+      <Select.Portal>
+        <Select.Content 
+            className={`overflow-hidden bg-white rounded-xl shadow-xl border border-gray-100 z-[70] min-w-[140px] animate-in fade-in zoom-in-95 duration-100 ${contentClassName}`}
+            position="popper"
+            sideOffset={5}
         >
-          <DropdownMenu.Label className="px-3 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-            {placeholder}
-          </DropdownMenu.Label>
+          <Select.ScrollUpButton className="flex items-center justify-center h-[25px] bg-white text-gray-500 cursor-default">
+            <ChevronUp size={12} />
+          </Select.ScrollUpButton>
           
-          {options.map((option) => (
-            <DropdownMenu.Item 
-              key={option.value}
-              className={`flex items-center gap-2 px-3 py-2 text-sm rounded-lg outline-none cursor-pointer transition-colors select-none ${
-                value === option.value 
-                  ? 'bg-primary/10 text-primary font-bold' 
-                  : 'text-gray-700 hover:bg-gray-50'
-              }`}
-              onSelect={() => onChange(option.value)}
-            >
-              {option.icon && <option.icon size={14} />}
-              {option.label}
-              {value === option.value && <Icons.Check size={14} className="ml-auto" />}
-            </DropdownMenu.Item>
-          ))}
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
-    </DropdownMenu.Root>
+          <Select.Viewport className="p-1.5">
+            {options.map((option) => (
+              <Select.Item 
+                key={option.value} 
+                value={option.value}
+                className="relative flex items-center gap-2 h-[40px] px-2 pl-8 select-none rounded-lg text-sm text-gray-700 font-bold data-[disabled]:text-gray-300 data-[disabled]:pointer-events-none data-[highlighted]:bg-primary/5 data-[highlighted]:text-primary outline-none cursor-pointer transition-colors"
+              >
+                <Select.ItemIndicator className="absolute left-2 w-[25px] inline-flex items-center justify-center">
+                  <Check size={14} className="text-primary" />
+                </Select.ItemIndicator>
+                
+                {option.icon && <option.icon size={16} className={option.value === safeValue ? "text-primary" : "text-gray-400"} />}
+                <Select.ItemText>{option.label}</Select.ItemText>
+              </Select.Item>
+            ))}
+          </Select.Viewport>
+
+          <Select.ScrollDownButton className="flex items-center justify-center h-[25px] bg-white text-gray-500 cursor-default">
+            <ChevronDown size={12} />
+          </Select.ScrollDownButton>
+        </Select.Content>
+      </Select.Portal>
+    </Select.Root>
   );
 };
-
