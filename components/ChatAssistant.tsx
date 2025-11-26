@@ -8,6 +8,8 @@ import { useToast } from './ToastProvider';
 interface ChatAssistantProps {
   user: UserProfile | null;
   pantry: Ingredient[];
+  savedRecipes: any[]; // Added
+  dailyLog: any | null; // Added
   currentView: ViewState;
   constraintsRef?: React.RefObject<HTMLDivElement>;
   onAddIngredient: (name: string, quantity?: string) => void;
@@ -20,6 +22,8 @@ interface ChatAssistantProps {
 export const ChatAssistant: React.FC<ChatAssistantProps> = ({
   user,
   pantry,
+  savedRecipes,
+  dailyLog,
   currentView,
   constraintsRef,
   onAddIngredient,
@@ -186,7 +190,7 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({
     setIsLoading(true);
 
     try {
-      const response = await chatWithChef(userMsg.text, messages, user, pantry, savedRecipes, dailyLog, currentView);
+      const response = await chatWithChef(userMsg.text, messages, user, pantry, savedRecipes || [], dailyLog, currentView);
       
       if (response.text) {
         setMessages(prev => [...prev, { role: 'model', text: response.text }]);
@@ -312,9 +316,10 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({
         }
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      setMessages(prev => [...prev, { role: 'model', text: "Sorry, I had a bit of a brain freeze. Can you try again?" }]);
+      const errorMessage = error?.message || "Unknown error";
+      setMessages(prev => [...prev, { role: 'model', text: `Sorry, I had a bit of a brain freeze (${errorMessage}). Can you try again?` }]);
     } finally {
       setIsLoading(false);
     }

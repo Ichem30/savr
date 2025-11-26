@@ -278,11 +278,13 @@ export const generateRecipes = async (
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: prompt,
+      contents: {
+        role: 'user',
+        parts: [{ text: prompt }]
+      },
       config: {
         responseMimeType: "application/json",
         responseSchema: recipeSchema,
-        // Higher temp for creative combination of random ingredients
         temperature: 0.65, 
       }
     });
@@ -305,22 +307,43 @@ export const chatWithChef = async (
   history: ChatMessage[],
   user: UserProfile,
   pantry: Ingredient[],
-  savedRecipes: Recipe[], // Added
-  dailyLog: any | null, // Added (Using 'any' or import DailyLog type if available)
+  savedRecipes: Recipe[],
+  dailyLog: any | null,
   currentView: string
 ): Promise<{ text: string, functionCalls: any[] }> => {
   try {
-    const apiKey = process.env.API_KEY;
-    if (!apiKey) throw new Error("API Key is missing");
+    // Safe API Key retrieval for Vite/Web environment
+    let apiKey = "";
+    try {
+        // @ts-ignore
+        if (typeof import.meta !== 'undefined' && import.meta.env) {
+            // @ts-ignore
+            apiKey = import.meta.env.VITE_API_KEY || import.meta.env.API_KEY || "";
+        }
+    } catch (e) {}
+    
+    if (!apiKey) {
+        try {
+            apiKey = process.env.API_KEY || "";
+        } catch (e) {}
+    }
+
+    if (!apiKey) throw new Error("API Key is missing (checked import.meta.env and process.env)");
 
     const ai = new GoogleGenAI({ apiKey });
 
     const pantryList = pantry.map(i => `${i.name} ${i.quantity ? `(${i.quantity})` : ''}`).join(', ');
-    const savedRecipesList = savedRecipes.map(r => r.title).join(', ');
+    const savedRecipesList = (savedRecipes || []).map(r => r.title || "Untitled").join(', ');
     
+    // Safe access to user properties
+    const userAllergies = (user.allergies && Array.isArray(user.allergies)) ? user.allergies.join(', ') : "None";
+    const userDislikes = (user.dislikes && Array.isArray(user.dislikes)) ? user.dislikes.join(', ') : "None";
+    const userWeight = user.weight || "Not set";
+    const userGoal = user.goal || "Not set";
+
     // Format daily log summary
     const logSummary = dailyLog ? `
-      - Calories Consumed: ${dailyLog.consumed} kcal
+      - Calories Consumed: ${dailyLog.consumed || 0} kcal
       - Water: ${(dailyLog.water || 0) / 1000} L
       - Meals: ${(dailyLog.meals || []).map((m: any) => `${m.name} (${m.calories}kcal)`).join(', ')}
     ` : "No entries today yet.";
@@ -333,9 +356,10 @@ export const chatWithChef = async (
       
       CURRENT APP STATE (This is the Source of Truth):
       - User Name: ${user.name}
-      - User Goal: ${user.goal}
-      - Weight: ${user.weight} kg
-      - Allergies: ${user.allergies.join(', ')}
+      - User Goal: ${userGoal}
+      - Weight: ${userWeight} kg
+      - Allergies: ${userAllergies}
+      - Dislikes: ${userDislikes}
       - Current View/Page: ${currentView}
       - Pantry Inventory: ${pantryList || "Empty"}
       - Saved Recipes: ${savedRecipesList || "None"}
@@ -361,14 +385,19 @@ export const chatWithChef = async (
       4. **CHAINING TOOLS**: If needed, call multiple tools (e.g. add ingredient and then generate recipe).
     `;
 
-    // Filter and format history to prevent empty text errors
-    const cleanHistory = history.map(h => ({
+    // Filter and format history to prevent empty text errors and strip tool calls for safety if needed
+    // For now, we trust the cleanHistory structure but let's ensure the first message is USER if possible or SYSTEM is handled via config
+    let cleanHistory = history.map(h => ({
        role: h.role,
-       parts: [{ text: h.text || " " }] // ensure no empty text parts
+       parts: [{ text: h.text || " " }]
     })).filter(h => h.parts[0].text.trim() !== "");
 
+    // Remove any initial model greeting from history to prevent "Model response must follow User request" errors
+    if (cleanHistory.length > 0 && cleanHistory[0].role === 'model') {
+        cleanHistory = cleanHistory.slice(1);
+    }
+
     // Construct conversation history
-    // We use systemInstruction in config instead of a fake user message for better tool adherence
     const contents = [
         ...cleanHistory, 
         { role: 'user', parts: [{ text: message }] }
@@ -378,9 +407,10 @@ export const chatWithChef = async (
       model: 'gemini-2.5-flash',
       contents: contents,
       config: {
+        temperature: 0.7,
         tools: [{ functionDeclarations: chatTools }],
-        systemInstruction: systemInstruction,
-      }
+        systemInstruction: { parts: [{ text: systemInstruction }] },
+      },
     });
 
     const resultText = response.text || "";
@@ -388,8 +418,9 @@ export const chatWithChef = async (
 
     return { text: resultText, functionCalls };
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Chat Error:", error);
-    return { text: "I'm having trouble connecting to the kitchen server right now.", functionCalls: [] };
+    const msg = error?.message || error?.toString() || "Unknown error";
+    return { text: `I'm having trouble connecting to the kitchen server right now. (Error: ${msg})`, functionCalls: [] };
   }
 };
