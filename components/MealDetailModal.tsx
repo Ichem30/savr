@@ -6,6 +6,9 @@ import { FoodDetailModal } from './FoodDetailModal';
 import { auth, searchCachedFoods, saveFoodToCache } from '../services/firebase';
 import { startScan, stopScan } from '../services/scannerService';
 import { Html5Qrcode } from "html5-qrcode";
+import { useToast } from './ToastProvider';
+import { Recipe } from '../types';
+import { RecipeDetail } from '../views/RecipeDetail';
 
 interface MealDetailModalProps {
     mealType: { id: string, label: string, icon: any, color: string };
@@ -25,13 +28,15 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
     savedRecipes, 
     onClose, 
     onAddMeal, 
-    onUpdateMeal,
+    onUpdateMeal, 
     onRemoveMeal 
 }) => {
+    const { showToast } = useToast();
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<ProductResult[]>([]);
     const [isSearching, setIsSearching] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState<ProductResult | null>(null);
+    const [selectedRecipeForEdit, setSelectedRecipeForEdit] = useState<Recipe | null>(null);
     const [editingItem, setEditingItem] = useState<any | null>(null);
     const [view, setView] = useState<'list' | 'search' | 'recipes'>('list');
 
@@ -50,7 +55,7 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
                 (errorMsg) => {
                     if (isMounted) {
                         console.error("Scanner Error:", errorMsg);
-                        if (!errorMsg.includes("stop")) alert("Erreur scan: " + errorMsg);
+                        if (!errorMsg.includes("stop")) showToast("Scan error: " + errorMsg, "error");
                     }
                 }
             );
@@ -72,10 +77,10 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
             if (product) {
                 setSelectedProduct(product);
             } else {
-                alert("Produit non trouvé dans la base de données.");
+                showToast("Product not found in database.", "warning");
             }
         } catch (error) {
-            alert("Erreur lors de la récupération du produit.");
+            showToast("Error fetching product.", "error");
         }
     };
 
@@ -173,12 +178,37 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
     };
 
     const handleEditItem = (item: any) => {
+        if (item.recipeId) {
+            const recipe = savedRecipes.find(r => r.id === item.recipeId);
+            if (recipe) {
+                setEditingItem(item);
+                setSelectedRecipeForEdit(recipe);
+                return;
+            }
+        }
+        
         if (item.productDetails) {
             setEditingItem(item);
             setSelectedProduct(item.productDetails);
         } else {
-            alert("Cet aliment ne peut pas être édité (données manquantes). Supprimez-le et ajoutez-le à nouveau.");
+            showToast("This item cannot be edited (missing data). Delete and add again.", "warning");
         }
+    };
+
+    const handleUpdateRecipeLog = (portions: number, calories: number, macros: any) => {
+        if (!editingItem) return;
+        
+        onUpdateMeal({
+            ...editingItem,
+            portions: portions,
+            quantity: portions, // We store servings as quantity for recipes
+            calories: calories,
+            macros: macros
+        });
+        
+        setSelectedRecipeForEdit(null);
+        setEditingItem(null);
+        showToast("Recipe updated!", "success");
     };
 
     return (
@@ -218,15 +248,15 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
                         {/* Macros Summary */}
                         <div className="grid grid-cols-3 gap-2">
                             <div className="bg-blue-50 p-3 rounded-xl text-center border border-blue-100">
-                                <span className="block text-xs text-blue-400 font-bold uppercase">Protéines</span>
+                                <span className="block text-xs text-blue-400 font-bold uppercase">Protein</span>
                                 <span className="text-lg font-black text-blue-600">{Math.round(totalProt)}g</span>
                             </div>
                             <div className="bg-emerald-50 p-3 rounded-xl text-center border border-emerald-100">
-                                <span className="block text-xs text-emerald-400 font-bold uppercase">Glucides</span>
+                                <span className="block text-xs text-emerald-400 font-bold uppercase">Carbs</span>
                                 <span className="text-lg font-black text-emerald-600">{Math.round(totalCarbs)}g</span>
                             </div>
                             <div className="bg-amber-50 p-3 rounded-xl text-center border border-amber-100">
-                                <span className="block text-xs text-amber-400 font-bold uppercase">Lipides</span>
+                                <span className="block text-xs text-amber-400 font-bold uppercase">Fats</span>
                                 <span className="text-lg font-black text-amber-600">{Math.round(totalFat)}g</span>
                             </div>
                         </div>
@@ -234,7 +264,7 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
                         {/* List */}
                         {consumedItems.length > 0 ? (
                             <div className="space-y-2">
-                                <h3 className="font-bold text-gray-800">Aliments consommés</h3>
+                                <h3 className="font-bold text-gray-800">Consumed Foods</h3>
                                 {consumedItems.map(item => (
                                     <div 
                                         key={item.id} 
@@ -265,9 +295,9 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
                                 <div className={`w-20 h-20 mx-auto rounded-full ${mealType.color} bg-opacity-10 flex items-center justify-center mb-4`}>
                                     <mealType.icon size={40} />
                                 </div>
-                                <p className="text-gray-400 font-medium">Aucun aliment ajouté pour ce repas.</p>
+                                <p className="text-gray-400 font-medium">No food added for this meal.</p>
                                 <button onClick={() => setView('search')} className="mt-4 text-primary font-bold hover:underline">
-                                    Ajouter un aliment
+                                    Add Food
                                 </button>
                             </div>
                         )}
@@ -286,7 +316,7 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
                                     value={searchQuery}
                                     onChange={e => setSearchQuery(e.target.value)}
                                     className="bg-transparent w-full outline-none text-gray-800 font-medium"
-                                    placeholder="Rechercher (ex: Pomme...)"
+                                    placeholder="Search (e.g. Apple...)"
                                 />
                                 {isSearching && <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />}
                                 
@@ -301,7 +331,7 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
                                 onClick={() => setView('list')}
                                 className="px-4 font-bold text-gray-500 hover:text-gray-800 transition-colors"
                             >
-                                Annuler
+                                Cancel
                             </button>
                         </div>
 
@@ -311,14 +341,14 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
                                 onClick={() => setView('search')}
                                 className={`pb-2 text-sm font-bold transition-colors relative ${view === 'search' ? 'text-primary' : 'text-gray-400'}`}
                             >
-                                Recherche
+                                Search
                                 {view === 'search' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-t-full" />}
                             </button>
                             <button 
                                 onClick={() => setView('recipes')}
                                 className={`pb-2 text-sm font-bold transition-colors relative ${view === 'recipes' ? 'text-primary' : 'text-gray-400'}`}
                             >
-                                Mes Recettes
+                                My Recipes
                                 {view === 'recipes' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-t-full" />}
                             </button>
                         </div>
@@ -348,7 +378,7 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
                                 ))}
                                 {searchResults.length === 0 && searchQuery.length > 1 && !isSearching && (
                                     <div className="text-center py-8 text-gray-400 text-sm">
-                                        Aucun résultat trouvé.
+                                        No results found.
                                     </div>
                                 )}
                             </div>
@@ -383,7 +413,7 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
                                     ))
                                 ) : (
                                     <div className="text-center py-8 text-gray-400 text-sm">
-                                        Aucune recette sauvegardée.
+                                        No saved recipes.
                                     </div>
                                 )}
                             </div>
@@ -414,9 +444,9 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
                          </div>
                      </div>
                      <div className="p-8 bg-black text-center pb-safe">
-                         <p className="text-white font-bold text-lg mb-2">Scannez un code-barre</p>
-                         <p className="text-gray-400 text-sm mb-6">Placez le code-barre dans le cadre pour l'ajouter à votre repas.</p>
-                         <button onClick={stopScanner} className="px-8 py-3 bg-gray-800 text-white rounded-full font-bold">Annuler</button>
+                         <p className="text-white font-bold text-lg mb-2">Scan a barcode</p>
+                         <p className="text-gray-400 text-sm mb-6">Place barcode in frame to scan.</p>
+                         <button onClick={stopScanner} className="px-8 py-3 bg-gray-800 text-white rounded-full font-bold">Cancel</button>
                      </div>
                 </motion.div>
             )}
@@ -433,6 +463,25 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
                         initialAmount={editingItem?.quantity}
                         isEditing={!!editingItem}
                     />
+                )}
+            </AnimatePresence>
+
+            {/* Recipe Edit Overlay */}
+            <AnimatePresence>
+                {selectedRecipeForEdit && (
+                    <motion.div 
+                        initial={{ opacity: 0, y: '100%' }} 
+                        animate={{ opacity: 1, y: 0 }} 
+                        exit={{ opacity: 0, y: '100%' }}
+                        className="fixed inset-0 z-[70] bg-white"
+                    >
+                        <RecipeDetail 
+                            recipe={selectedRecipeForEdit}
+                            onBack={() => { setSelectedRecipeForEdit(null); setEditingItem(null); }}
+                            initialPortions={editingItem?.portions || editingItem?.quantity || 1}
+                            onUpdateLog={handleUpdateRecipeLog}
+                        />
+                    </motion.div>
                 )}
             </AnimatePresence>
         </motion.div>

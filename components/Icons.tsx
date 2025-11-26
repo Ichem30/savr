@@ -63,7 +63,8 @@ import {
   BicepsFlexed,
   AlertTriangle,
   ThumbsDown,
-  Settings
+  Settings,
+  Infinity
 } from 'lucide-react';
 
 export const Icons = {
@@ -133,5 +134,6 @@ export const Icons = {
   BicepsFlexed,
   AlertTriangle,
   ThumbsDown,
-  Settings
+  Settings,
+  Infinity
 };

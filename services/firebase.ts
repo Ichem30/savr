@@ -274,9 +274,20 @@ export const addMealToLog = async (uid: string, date: string, meal: any) => {
     const updatedMeals = [...(data.meals || []), meal];
     const totalCals = updatedMeals.reduce((acc: number, m: any) => acc + m.calories, 0);
     
+    const totalMacros = updatedMeals.reduce((acc: any, m: any) => ({
+        carbs: acc.carbs + (m.macros?.carbs || 0),
+        protein: acc.protein + (m.macros?.protein || 0),
+        fats: acc.fats + (m.macros?.fats || 0)
+    }), { carbs: 0, protein: 0, fats: 0 });
+
     await updateDoc(docRef, {
       meals: updatedMeals,
-      consumed: totalCals
+      consumed: totalCals,
+      macros: {
+          carbs: { current: totalMacros.carbs, target: 0 },
+          protein: { current: totalMacros.protein, target: 0 },
+          fats: { current: totalMacros.fats, target: 0 }
+      }
     });
   } else {
     await setDoc(docRef, {
@@ -284,7 +295,12 @@ export const addMealToLog = async (uid: string, date: string, meal: any) => {
       meals: [meal],
       consumed: meal.calories,
       burned: 0,
-      water: 0
+      water: 0,
+      macros: {
+          carbs: { current: meal.macros?.carbs || 0, target: 0 },
+          protein: { current: meal.macros?.protein || 0, target: 0 },
+          fats: { current: meal.macros?.fats || 0, target: 0 }
+      }
     });
     await updateStreak(uid, date);
   }
@@ -301,9 +317,20 @@ export const updateMealInLog = async (uid: string, date: string, meal: any) => {
         );
         const totalCals = updatedMeals.reduce((acc: number, m: any) => acc + m.calories, 0);
         
+        const totalMacros = updatedMeals.reduce((acc: any, m: any) => ({
+            carbs: acc.carbs + (m.macros?.carbs || 0),
+            protein: acc.protein + (m.macros?.protein || 0),
+            fats: acc.fats + (m.macros?.fats || 0)
+        }), { carbs: 0, protein: 0, fats: 0 });
+
         await updateDoc(docRef, {
             meals: updatedMeals,
-            consumed: totalCals
+            consumed: totalCals,
+            macros: {
+                carbs: { current: totalMacros.carbs, target: 0 },
+                protein: { current: totalMacros.protein, target: 0 },
+                fats: { current: totalMacros.fats, target: 0 }
+            }
         });
     }
 };
@@ -317,9 +344,20 @@ export const deleteMealFromLog = async (uid: string, date: string, mealId: strin
         const updatedMeals = (data.meals || []).filter((m: any) => m.id !== mealId);
         const totalCals = updatedMeals.reduce((acc: number, m: any) => acc + m.calories, 0);
         
+        const totalMacros = updatedMeals.reduce((acc: any, m: any) => ({
+            carbs: acc.carbs + (m.macros?.carbs || 0),
+            protein: acc.protein + (m.macros?.protein || 0),
+            fats: acc.fats + (m.macros?.fats || 0)
+        }), { carbs: 0, protein: 0, fats: 0 });
+
         await updateDoc(docRef, {
             meals: updatedMeals,
-            consumed: totalCals
+            consumed: totalCals,
+            macros: {
+                carbs: { current: totalMacros.carbs, target: 0 },
+                protein: { current: totalMacros.protein, target: 0 },
+                fats: { current: totalMacros.fats, target: 0 }
+            }
         });
     }
 };

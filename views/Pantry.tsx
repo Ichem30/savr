@@ -7,12 +7,13 @@ import { IngredientContextMenu } from '../components/IngredientContextMenu';
 import { ModernSelect } from '../components/ModernSelect';
 import { motion, AnimatePresence } from 'framer-motion';
 import { searchProducts, getProductByBarcode, searchLocalProducts, ProductResult } from '../services/foodApi';
+import { useToast } from '../components/ToastProvider';
 
 import { FoodDetailModal } from '../components/FoodDetailModal';
 
 interface PantryProps {
   pantry: Ingredient[];
-  onGenerate: (strictMode: boolean, options?: { mealType?: string, timeLimit?: string, skillLevel?: string }) => void;
+  onGenerate: () => void;
   // New props for CRUD operations
   onAdd: (item: Ingredient) => void;
   onUpdate: (item: Ingredient) => void;
@@ -22,10 +23,10 @@ interface PantryProps {
 }
 
 export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpdate, onRemove, isScanning, setIsScanning }) => {
+  const { showToast } = useToast();
   const [input, setInput] = useState('');
   const [quantityInput, setQuantityInput] = useState('');
   const [unitInput, setUnitInput] = useState<'g' | 'portion'>('g');
-  const [strictMode, setStrictMode] = useState(false);
   const [filterQuery, setFilterQuery] = useState('');
   
   // Search State
@@ -38,9 +39,7 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
   const [selectedForEdit, setSelectedForEdit] = useState<Ingredient | null>(null);
   
   // Generation Options
-  const [selectedMeal, setSelectedMeal] = useState<string | undefined>(undefined);
-  const [selectedTime, setSelectedTime] = useState<string | undefined>(undefined);
-  const [selectedSkill, setSelectedSkill] = useState<string | undefined>(undefined);
+  // REMOVED as they are now in RecipeFilter
   
   // Scanner State (Moved to App.tsx, using props now)
   const [scanError, setScanError] = useState<string | null>(null);
@@ -146,11 +145,11 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
               }
 
           } else {
-              alert("Product not found in database. Please add manually.");
+              showToast("Product not found in database. Please add manually.", "warning");
           }
       } catch (error) {
           console.error("API Error", error);
-          alert("Failed to fetch product details. Check internet connection.");
+          showToast("Failed to fetch product details. Check internet connection.", "error");
       }
   };
 
@@ -469,7 +468,7 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
                                 <h3 className="text-xs font-bold text-emerald-600 uppercase tracking-wider flex items-center gap-2"><Icons.ScanBarcode size={14} /> Identified Products</h3>
                                 <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-1 rounded-full">{scannedItems.length} items</span>
                             </div>
-                            <div className="grid grid-cols-2 gap-3 pb-2">
+                            <div className="grid grid-cols-3 gap-2 pb-2">
                                 {scannedItems.map((item, index) => {
                                     const isSelected = item.isSelected !== false;
                                     return (
@@ -487,40 +486,34 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
                                             >
                                                 <div 
                                                     onClick={() => setSelectedForEdit(item)} 
-                                                    className={`relative h-full p-3 rounded-2xl flex flex-col shadow-sm cursor-pointer transition-all border ${isSelected ? 'bg-white border-primary ring-1 ring-primary/20 shadow-md' : 'bg-white/60 border-gray-100 opacity-80 hover:opacity-100'}`}
+                                                    className={`relative h-full p-1.5 rounded-xl flex flex-col shadow-sm cursor-pointer transition-all border ${isSelected ? 'bg-white border-primary ring-1 ring-primary/20 shadow-md' : 'bg-white/60 border-gray-100 opacity-80 hover:opacity-100'}`}
                                                 >
-                                                    <div className="absolute top-2 right-2 z-10">
+                                                    <div className="absolute top-1 right-1 z-10">
                                                         <button 
                                                             onClick={(e) => { e.stopPropagation(); toggleIngredient(item); }} 
-                                                            className={`w-6 h-6 rounded-full flex items-center justify-center transition-all shadow-sm ${isSelected ? 'bg-primary text-white' : 'bg-gray-100 text-gray-300 hover:bg-gray-200'}`}
+                                                            className={`w-4 h-4 rounded-full flex items-center justify-center transition-all shadow-sm ${isSelected ? 'bg-primary text-white' : 'bg-white/80 backdrop-blur text-gray-300 hover:bg-gray-100'}`}
                                                         >
-                                                            {isSelected && <Icons.Check size={14} strokeWidth={3} />}
+                                                            {isSelected && <Icons.Check size={10} strokeWidth={3} />}
                                                         </button>
                                                     </div>
                                                     
-                                                    <div className="w-full aspect-square mb-3 rounded-xl overflow-hidden bg-gray-50 flex items-center justify-center">
+                                                    <div className="w-full h-16 mb-1.5 rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center border border-gray-50">
                                                         {item.image ? (
                                                             <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
                                                         ) : (
-                                                            <Icons.ShoppingBag size={32} className="text-emerald-200" />
+                                                            <Icons.ShoppingBag size={20} className="text-emerald-200" />
                                                         )}
                                                     </div>
 
                                                     <div className="flex-1 flex flex-col min-w-0">
-                                                        <h4 className="font-bold text-gray-800 text-sm leading-tight line-clamp-2 mb-1" title={item.name}>{item.name}</h4>
-                                                        {item.brand && <p className="text-[10px] text-gray-400 truncate mb-2">{item.brand}</p>}
+                                                        <h4 className="font-bold text-gray-800 text-[10px] leading-tight line-clamp-2 mb-0.5" title={item.name}>{item.name}</h4>
                                                         
-                                                        <div className="mt-auto flex flex-wrap gap-1.5 items-end pt-2 border-t border-gray-50">
-                                                            {item.quantity && (
-                                                                <span className="text-[10px] font-bold bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-md">
+                                                        <div className="mt-auto flex items-center justify-between pt-1 border-t border-gray-50 gap-1">
+                                                            {item.quantity ? (
+                                                                <span className="text-[9px] font-bold text-primary bg-primary/5 px-1 py-0.5 rounded border border-primary/10 truncate max-w-[100%]">
                                                                     {item.quantity}
                                                                 </span>
-                                                            )}
-                                                            {item.nutrition?.calories && (
-                                                                <span className="text-[10px] font-medium text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded-md">
-                                                                    {Math.round(item.nutrition.calories)} kcal
-                                                                </span>
-                                                            )}
+                                                            ) : <span className="w-1"/>}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -574,70 +567,13 @@ export const Pantry: React.FC<PantryProps> = ({ pantry, onGenerate, onAdd, onUpd
 
       {pantry.length > 0 && (
         <div className="absolute bottom-0 left-0 w-full px-6 pb-28 pt-6 space-y-3 bg-gradient-to-t from-gray-50 via-gray-50 to-transparent z-20">
-            {/* Preference Pills - HIDDEN FOR NOW */}
-            {/* <div className="flex flex-wrap gap-2 justify-start pb-2">
-                <ModernSelect
-                    value={selectedMeal || "all"}
-                    onChange={(val) => setSelectedMeal(val === "all" ? undefined : val)}
-                    placeholder="Any Meal"
-                    icon={Icons.Utensils}
-                    className="flex-1 min-w-[100px] justify-center"
-                    options={[
-                        { value: "all", label: "Any Meal" },
-                        { value: "Breakfast", label: "Breakfast", icon: Icons.Sunrise },
-                        { value: "Lunch", label: "Lunch", icon: Icons.Sun },
-                        { value: "Dinner", label: "Dinner", icon: Icons.Moon },
-                        { value: "Snack", label: "Snack", icon: Icons.Apple }
-                    ]}
-                />
-
-                <ModernSelect
-                    value={selectedTime || "all"}
-                    onChange={(val) => setSelectedTime(val === "all" ? undefined : val)}
-                    placeholder="Any Time"
-                    icon={Icons.Clock}
-                    className="flex-1 min-w-[100px] justify-center"
-                    options={[
-                        { value: "all", label: "Any Time" },
-                        { value: "15 min", label: "15 min", icon: Icons.Clock },
-                        { value: "30 min", label: "30 min", icon: Icons.Clock },
-                        { value: "60 min", label: "60 min", icon: Icons.Clock }
-                    ]}
-                />
-
-                <ModernSelect
-                    value={selectedSkill || "all"}
-                    onChange={(val) => setSelectedSkill(val === "all" ? undefined : val)}
-                    placeholder="Any Level"
-                    icon={Icons.TrendingUp}
-                    className="flex-1 min-w-[100px] justify-center"
-                    options={[
-                        { value: "all", label: "Any Level" },
-                        { value: "Beginner", label: "Beginner", icon: Icons.Leaf },
-                        { value: "Intermediate", label: "Intermediate", icon: Icons.ChefHat },
-                        { value: "Advanced", label: "Pro", icon: Icons.Flame }
-                    ]}
-                />
-            </div> */}
-
-            <motion.div 
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setStrictMode(!strictMode)} 
-                className="bg-white/90 backdrop-blur p-3 rounded-xl flex items-center justify-between cursor-pointer border border-gray-200 shadow-sm hover:border-primary/30 transition-colors"
-            >
-                <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-full ${strictMode ? 'bg-emerald-100 text-primary' : 'bg-gray-100 text-gray-400'}`}>{strictMode ? <Icons.Check size={18} /> : <Icons.ShoppingBag size={18} />}</div>
-                    <div><span className="block text-sm font-bold text-gray-800">{strictMode ? "Use only selected ingredients" : "Allow missing ingredients"}</span><span className="block text-xs text-gray-500">{strictMode ? "No shopping required." : "We might suggest extras."}</span></div>
-                </div>
-                <div className={`w-11 h-6 rounded-full p-1 transition-colors duration-300 ${strictMode ? 'bg-primary' : 'bg-gray-300'}`}><motion.div layout className={`w-4 h-4 bg-white rounded-full shadow-sm ${strictMode ? 'translate-x-5' : ''}`} /></div>
-            </motion.div>
             <motion.button 
                 whileTap={{ scale: 0.98 }}
-                onClick={() => onGenerate(strictMode, { mealType: selectedMeal, timeLimit: selectedTime, skillLevel: selectedSkill })} 
+                onClick={onGenerate} 
                 disabled={selectedCount === 0} 
-                className={`w-full py-4 rounded-xl font-bold shadow-xl flex items-center justify-center gap-2 transition-all ${selectedCount > 0 ? 'bg-white border-2 border-primary text-primary shadow-primary/10 hover:bg-primary hover:text-white' : 'bg-gray-100 text-gray-400 cursor-not-allowed border-2 border-transparent'}`}
+                className={`w-full py-4 rounded-xl font-bold shadow-xl flex items-center justify-center gap-2 transition-all ${selectedCount > 0 ? 'bg-gradient-to-r from-primary to-emerald-600 text-white shadow-primary/20 hover:scale-[1.02]' : 'bg-gray-100 text-gray-400 cursor-not-allowed border-2 border-transparent'}`}
             >
-                <Icons.ChefHat className="w-5 h-5" />{selectedCount > 0 ? `Generate Recipes (${selectedCount})` : 'Select ingredients'}
+                <Icons.Sparkles className="w-5 h-5" />{selectedCount > 0 ? `Generate Recipes (${selectedCount})` : 'Select ingredients'}
             </motion.button>
         </div>
       )}

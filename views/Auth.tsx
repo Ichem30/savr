@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Icons } from '../components/Icons';
 import { User } from 'firebase/auth';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useToast } from '../components/ToastProvider';
 import { 
   signInGoogle, 
   signInApple, 
@@ -20,6 +21,7 @@ interface AuthProps {
 }
 
 export const Auth: React.FC<AuthProps> = ({ onSkip, currentUser }) => {
+  const { showToast } = useToast();
   const [isLogin, setIsLogin] = useState(true);
   const [authMethod, setAuthMethod] = useState<'email' | 'phone'>('email');
   
@@ -86,7 +88,7 @@ export const Auth: React.FC<AuthProps> = ({ onSkip, currentUser }) => {
     setLoading(true);
     try {
       await sendVerificationEmail();
-      alert("Verification email sent!");
+      showToast("Verification email sent!", "success");
     } catch (e: any) {
       if (e.code === 'auth/too-many-requests') {
         setError("Too many requests. Please wait a moment.");

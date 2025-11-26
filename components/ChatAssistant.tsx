@@ -3,6 +3,7 @@ import { Icons } from './Icons';
 import { ChatMessage, UserProfile, Ingredient, ViewState } from '../types';
 import { chatWithChef } from '../services/geminiService';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
+import { useToast } from './ToastProvider';
 
 interface ChatAssistantProps {
   user: UserProfile | null;
@@ -27,6 +28,7 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({
   onNavigate,
   onGenerateRecipes
 }) => {
+  const { showToast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -134,7 +136,7 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({
 
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      alert("Voice input is not supported in this browser.");
+      showToast("Voice input is not supported in this browser.", "warning");
       return;
     }
 

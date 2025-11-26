@@ -103,7 +103,7 @@ const chatTools: FunctionDeclaration[] = [
         },
         meal_type: {
           type: Type.STRING,
-          enum: ["Breakfast", "Lunch", "Dinner", "Snack", "Dessert"],
+          enum: ["Breakfast", "Lunch", "Dinner", "Snack", "Dessert", "Drink"],
           description: "Type of meal to generate"
         },
         time_limit: {
@@ -216,6 +216,10 @@ export const generateRecipes = async (
       Mission:
       Generate 3-4 distinct recipes.
       - **Zero Waste**: If the user lists "Stale Bread", suggest items like Panzanella, Croutons, or French Toast. If "Wilted Spinach", suggest soups or smoothies.
+      - **Meal Type Handling**: 
+        - If "Dessert" is requested, ONLY provide sweet treats, puddings, or baked goods. Do NOT provide savory dishes.
+        - If "Drink" is requested, ONLY provide beverages (smoothies, cocktails, healthy infusions).
+        - If "Breakfast/Lunch/Dinner" is requested, prioritize savory main dishes unless specifically asked otherwise.
       - **Education**: In the instructions, explain how to prep the specific leftover (e.g., "Soak the hard bread in a little water/milk to soften it first").
       - **Tags**: Include tags like "Leftover Rescue", "Pantry Staple", "Quick Fix" where appropriate.
       

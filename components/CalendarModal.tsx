@@ -49,8 +49,8 @@ export const CalendarModal: React.FC<CalendarModalProps> = ({ currentDate, onSel
     }
 
     const MONTHS = [
-        "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
-        "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
     ];
 
     const formatDate = (day: number) => {
@@ -89,7 +89,7 @@ export const CalendarModal: React.FC<CalendarModalProps> = ({ currentDate, onSel
                 <div className="p-6">
                     {/* Week Days */}
                     <div className="grid grid-cols-7 mb-4">
-                        {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((d, i) => (
+                        {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
                             <div key={i} className="text-center text-xs font-bold text-gray-400">
                                 {d}
                             </div>
@@ -129,7 +129,7 @@ export const CalendarModal: React.FC<CalendarModalProps> = ({ currentDate, onSel
                 
                 <div className="p-4 border-t border-gray-100 flex justify-center">
                     <button onClick={() => { onSelectDate(new Date().toISOString().split('T')[0]); onClose(); }} className="text-sm font-bold text-primary hover:underline">
-                        Revenir à aujourd'hui
+                        Back to Today
                     </button>
                 </div>
             </motion.div>

@@ -37,17 +37,17 @@ export const DailySummaryModal: React.FC<DailySummaryModalProps> = ({ date, logD
     
     // Chart Data
     const chartData = [
-        { name: 'Glucides', current: totalMacros.carbs, target: targets.carbs, color: '#10b981' }, // emerald-500
-        { name: 'Protéines', current: totalMacros.protein, target: targets.protein, color: '#3b82f6' }, // blue-500
-        { name: 'Lipides', current: totalMacros.fats, target: targets.fats, color: '#f59e0b' }, // amber-500
+        { name: 'Carbs', current: totalMacros.carbs, target: targets.carbs, color: '#10b981' }, // emerald-500
+        { name: 'Protein', current: totalMacros.protein, target: targets.protein, color: '#3b82f6' }, // blue-500
+        { name: 'Fats', current: totalMacros.fats, target: targets.fats, color: '#f59e0b' }, // amber-500
     ];
 
     // Meal Tabs Data
     const MEAL_TABS = [
-        { id: 'breakfast', label: 'Petit déj', icon: Icons.Coffee, color: 'text-amber-600 bg-amber-100' },
-        { id: 'lunch', label: 'Déjeuner', icon: Icons.Utensils, color: 'text-primary bg-emerald-100' },
-        { id: 'dinner', label: 'Dîner', icon: Icons.Moon, color: 'text-indigo-500 bg-indigo-100' },
-        { id: 'snack', label: 'En-cas', icon: Icons.Apple, color: 'text-rose-500 bg-rose-100' },
+        { id: 'breakfast', label: 'Breakfast', icon: Icons.Coffee, color: 'text-amber-600 bg-amber-100' },
+        { id: 'lunch', label: 'Lunch', icon: Icons.Utensils, color: 'text-primary bg-emerald-100' },
+        { id: 'dinner', label: 'Dinner', icon: Icons.Moon, color: 'text-indigo-500 bg-indigo-100' },
+        { id: 'snack', label: 'Snack', icon: Icons.Apple, color: 'text-rose-500 bg-rose-100' },
     ] as const;
 
     const activeMealData = getMacros(meals.filter((m: any) => m.type === activeMealTab));
@@ -78,7 +78,7 @@ export const DailySummaryModal: React.FC<DailySummaryModalProps> = ({ date, logD
                 <button onClick={onClose} className="p-2 -ml-2 hover:bg-gray-100 rounded-full text-gray-600 transition-colors">
                     <Icons.ArrowLeft size={24} />
                 </button>
-                <h1 className="text-lg font-black text-gray-800 capitalize">{date === new Date().toISOString().split('T')[0] ? "Aujourd'hui" : date}</h1>
+                <h1 className="text-lg font-black text-gray-800 capitalize">{date === new Date().toISOString().split('T')[0] ? "Today" : date}</h1>
                 <div className="w-10" /> {/* Spacer for centering */}
             </div>
 
@@ -87,11 +87,11 @@ export const DailySummaryModal: React.FC<DailySummaryModalProps> = ({ date, logD
                 
                 {/* Chart Section */}
                 <section>
-                    <h2 className="text-lg font-bold text-gray-800 mb-4">Valeurs nutritives</h2>
+                    <h2 className="text-lg font-bold text-gray-800 mb-4">Nutritional Values</h2>
                     <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
                         <div className="flex items-center gap-4 mb-6 text-xs font-medium text-gray-500">
-                            <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-gray-200" /> Objectif</div>
-                            <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-primary" /> Actuellement</div>
+                            <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-gray-200" /> Goal</div>
+                            <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-primary" /> Current</div>
                         </div>
                         
                         <div className="h-48 w-full flex items-end justify-between gap-4 px-4">
@@ -123,18 +123,18 @@ export const DailySummaryModal: React.FC<DailySummaryModalProps> = ({ date, logD
 
                 {/* Detail List Section */}
                 <section>
-                    <h2 className="text-lg font-bold text-gray-800 mb-4">Apport nutritionnel</h2>
+                    <h2 className="text-lg font-bold text-gray-800 mb-4">Nutritional Intake</h2>
                     <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
                         <ProgressBar label="Calories" current={consumed} target={targets.calories} colorClass="bg-gray-800" />
-                        <ProgressBar label="Glucides" current={totalMacros.carbs} target={targets.carbs} colorClass="bg-emerald-500" />
-                        <ProgressBar label="Protéines" current={totalMacros.protein} target={targets.protein} colorClass="bg-blue-500" />
-                        <ProgressBar label="Lipides" current={totalMacros.fats} target={targets.fats} colorClass="bg-amber-500" />
+                        <ProgressBar label="Carbs" current={totalMacros.carbs} target={targets.carbs} colorClass="bg-emerald-500" />
+                        <ProgressBar label="Protein" current={totalMacros.protein} target={targets.protein} colorClass="bg-blue-500" />
+                        <ProgressBar label="Fats" current={totalMacros.fats} target={targets.fats} colorClass="bg-amber-500" />
                     </div>
                 </section>
 
                 {/* Meals Section */}
                 <section>
-                    <h2 className="text-lg font-bold text-gray-800 mb-4">Repas</h2>
+                    <h2 className="text-lg font-bold text-gray-800 mb-4">Meals</h2>
                     <div className="bg-white rounded-3xl p-2 shadow-sm border border-gray-100">
                         {/* Tabs */}
                         <div className="flex p-1 gap-1 bg-gray-50 rounded-2xl mb-4 overflow-x-auto">
@@ -158,7 +158,7 @@ export const DailySummaryModal: React.FC<DailySummaryModalProps> = ({ date, logD
                             </div>
                             <div className="space-y-3">
                                 <div className="flex justify-between items-center text-xs">
-                                    <span className="text-gray-500 font-medium">Glucides</span>
+                                    <span className="text-gray-500 font-medium">Carbs</span>
                                     <span className="text-gray-800 font-bold">{Math.round(activeMealData.carbs)} g</span>
                                 </div>
                                 <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
@@ -166,7 +166,7 @@ export const DailySummaryModal: React.FC<DailySummaryModalProps> = ({ date, logD
                                 </div>
 
                                 <div className="flex justify-between items-center text-xs pt-1">
-                                    <span className="text-gray-500 font-medium">Protéines</span>
+                                    <span className="text-gray-500 font-medium">Protein</span>
                                     <span className="text-gray-800 font-bold">{Math.round(activeMealData.protein)} g</span>
                                 </div>
                                 <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
@@ -174,7 +174,7 @@ export const DailySummaryModal: React.FC<DailySummaryModalProps> = ({ date, logD
                                 </div>
 
                                 <div className="flex justify-between items-center text-xs pt-1">
-                                    <span className="text-gray-500 font-medium">Lipides</span>
+                                    <span className="text-gray-500 font-medium">Fats</span>
                                     <span className="text-gray-800 font-bold">{Math.round(activeMealData.fats)} g</span>
                                 </div>
                                 <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">

@@ -53,10 +53,10 @@ export const FoodDetailModal: React.FC<FoodDetailModalProps> = ({ product, mealT
 
     // Tags Logic
     const tags = [];
-    if (baseKcal < 50) tags.push({ label: 'Faible en calories', color: 'text-emerald-600 bg-emerald-100', icon: Icons.Leaf });
-    if (baseFat < 3) tags.push({ label: 'Faible en matières grasses', color: 'text-emerald-600 bg-emerald-100', icon: Icons.Droplet });
-    if (baseProt > 10) tags.push({ label: 'Riche en protéines', color: 'text-blue-600 bg-blue-100', icon: Icons.Dumbbell });
-    if (baseCarbs > 20) tags.push({ label: 'Riche en glucides', color: 'text-amber-600 bg-amber-100', icon: Icons.Flame });
+    if (baseKcal < 50) tags.push({ label: 'Low Calorie', color: 'text-emerald-600 bg-emerald-100', icon: Icons.Leaf });
+    if (baseFat < 3) tags.push({ label: 'Low Fat', color: 'text-emerald-600 bg-emerald-100', icon: Icons.Droplet });
+    if (baseProt > 10) tags.push({ label: 'High Protein', color: 'text-blue-600 bg-blue-100', icon: Icons.Dumbbell });
+    if (baseCarbs > 20) tags.push({ label: 'High Carb', color: 'text-amber-600 bg-amber-100', icon: Icons.Flame });
 
     return (
         <motion.div 
@@ -109,22 +109,22 @@ export const FoodDetailModal: React.FC<FoodDetailModalProps> = ({ product, mealT
                          </div>
                          <div className="text-center">
                              <span className="block text-xl font-bold text-emerald-600">{carbs}g</span>
-                             <span className="text-[10px] font-bold text-gray-400 uppercase">Glucides</span>
+                             <span className="text-[10px] font-bold text-gray-400 uppercase">Carbs</span>
                          </div>
                          <div className="text-center">
                              <span className="block text-xl font-bold text-blue-600">{prot}g</span>
-                             <span className="text-[10px] font-bold text-gray-400 uppercase">Protéines</span>
+                             <span className="text-[10px] font-bold text-gray-400 uppercase">Protein</span>
                          </div>
                          <div className="text-center">
                              <span className="block text-xl font-bold text-amber-600">{fat}g</span>
-                             <span className="text-[10px] font-bold text-gray-400 uppercase">Lipides</span>
+                             <span className="text-[10px] font-bold text-gray-400 uppercase">Fats</span>
                          </div>
                     </div>
 
                     {/* Tags */}
                     {tags.length > 0 && (
                         <div className="mb-6">
-                            <h3 className="text-sm font-bold text-gray-800 mb-3">Notation des aliments</h3>
+                            <h3 className="text-sm font-bold text-gray-800 mb-3">Food Rating</h3>
                             <div className="flex flex-wrap gap-2">
                                 {tags.map((tag, i) => (
                                     <div key={i} className={`px-3 py-1.5 rounded-lg flex items-center gap-2 text-xs font-bold ${tag.color}`}>
@@ -138,34 +138,34 @@ export const FoodDetailModal: React.FC<FoodDetailModalProps> = ({ product, mealT
 
                     {/* Detailed Nutrition Table */}
                     <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-6">
-                        <h3 className="text-sm font-bold text-gray-800 mb-4">Valeurs nutritives</h3>
+                        <h3 className="text-sm font-bold text-gray-800 mb-4">Nutrition Facts</h3>
                         <div className="space-y-3 text-sm">
                             <div className="flex justify-between items-center font-bold border-b border-gray-50 pb-2">
                                 <span className="text-gray-800">Calories</span>
                                 <span className="text-gray-800">{cals} kcal</span>
                             </div>
                             <div className="flex justify-between items-center text-gray-600 border-b border-gray-50 pb-2">
-                                <span>Protéines</span>
+                                <span>Protein</span>
                                 <span>{prot} g</span>
                             </div>
                             <div className="flex justify-between items-center text-gray-600 border-b border-gray-50 pb-2">
-                                <span>Glucides</span>
+                                <span>Carbs</span>
                                 <span>{carbs} g</span>
                             </div>
                             <div className="flex justify-between items-center text-gray-500 pl-4 pb-2 border-b border-gray-50">
-                                <span>Sucres</span>
+                                <span>Sugars</span>
                                 <span>{(getNute('sugars_100g') * factor).toFixed(1)} g</span>
                             </div>
                             <div className="flex justify-between items-center text-gray-600 border-b border-gray-50 pb-2">
-                                <span>Lipides</span>
+                                <span>Fats</span>
                                 <span>{fat} g</span>
                             </div>
                             <div className="flex justify-between items-center text-gray-500 pl-4 pb-2 border-b border-gray-50">
-                                <span>Saturés</span>
+                                <span>Saturated</span>
                                 <span>-- g</span> {/* Souvent manquant dans recherche simple */}
                             </div>
                              <div className="flex justify-between items-center text-gray-600 pb-1">
-                                <span>Sel</span>
+                                <span>Salt</span>
                                 <span>{(getNute('salt_100g') * factor).toFixed(2)} g</span>
                             </div>
                         </div>
@@ -228,7 +228,7 @@ export const FoodDetailModal: React.FC<FoodDetailModalProps> = ({ product, mealT
                             }}
                             className="flex-1 py-4 bg-primary text-white rounded-2xl font-bold text-lg shadow-lg shadow-primary/20 hover:bg-emerald-600 transition-all active:scale-95"
                          >
-                             {isEditing ? "Mettre à jour" : `Ajouter au ${mealTypeLabel}`}
+                             {isEditing ? "Update" : `Add to ${mealTypeLabel}`}
                          </button>
                      </div>
                 </div>

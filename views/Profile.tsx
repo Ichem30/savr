@@ -5,33 +5,36 @@ import { auth, signInGoogle, logOut, subscribeToDailyLog, uploadProfileImage } f
 import { calculateDailyTargets } from '../utils/nutrition';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { useToast } from '../components/ToastProvider';
 
 interface ProfileProps {
   user: UserProfile;
   onSave: (updatedProfile: UserProfile) => Promise<void>;
+  mode: 'view' | 'edit' | 'goals' | 'calories' | 'nutrition' | 'diet' | 'calorie-distribution' | 'progress';
+  onModeChange: (mode: 'view' | 'edit' | 'goals' | 'calories' | 'nutrition' | 'diet' | 'calorie-distribution' | 'progress') => void;
 }
 
 // ... (Existing constants: GOAL_OPTIONS, DIET_PRESETS, ACTIVITY_LEVELS, WEEKLY_GOAL_OPTIONS, SafeIcon)
 const GOAL_OPTIONS: { value: FitnessGoal; label: string; icon: any }[] = [
-  { value: 'weight_loss', label: 'Perdre du poids', icon: Icons.Scale },
-  { value: 'muscle_gain', label: 'Prendre du muscle', icon: Icons.Dumbbell },
-  { value: 'maintain', label: 'Maintenir', icon: Icons.Leaf },
-  { value: 'balanced', label: 'Manger sainement', icon: Icons.Heart },
+  { value: 'weight_loss', label: 'Lose Weight', icon: Icons.Scale },
+  { value: 'muscle_gain', label: 'Build Muscle', icon: Icons.Dumbbell },
+  { value: 'maintain', label: 'Maintain', icon: Icons.Leaf },
+  { value: 'balanced', label: 'Eat Healthy', icon: Icons.Heart },
 ];
 
 const DIET_PRESETS: Record<string, { label: string; ratios: { carbs: number; protein: number; fats: number } }> = {
-    'default': { label: 'Par défaut', ratios: { carbs: 0.40, protein: 0.30, fats: 0.30 } },
+    'default': { label: 'Default', ratios: { carbs: 0.40, protein: 0.30, fats: 0.30 } },
     'low_carb': { label: 'Low-carb', ratios: { carbs: 0.20, protein: 0.40, fats: 0.40 } },
-    'high_protein': { label: 'Hyper protéiné', ratios: { carbs: 0.35, protein: 0.45, fats: 0.20 } },
-    'low_fat': { label: 'Sans graisse', ratios: { carbs: 0.60, protein: 0.25, fats: 0.15 } },
+    'high_protein': { label: 'High Protein', ratios: { carbs: 0.35, protein: 0.45, fats: 0.20 } },
+    'low_fat': { label: 'Low Fat', ratios: { carbs: 0.60, protein: 0.25, fats: 0.15 } },
 };
 
 const ACTIVITY_LEVELS = {
-    'sedentary': 'Sédentaire',
-    'light': 'Légèrement actif',
-    'moderate': 'Modéré',
-    'active': 'Actif',
-    'very_active': 'Très actif'
+    'sedentary': 'Sedentary',
+    'light': 'Lightly Active',
+    'moderate': 'Moderate',
+    'active': 'Active',
+    'very_active': 'Very Active'
 };
 
 const WEEKLY_GOAL_OPTIONS = [
@@ -39,7 +42,7 @@ const WEEKLY_GOAL_OPTIONS = [
     { value: -0.75, label: '-0.75 kg' },
     { value: -0.5, label: '-0.50 kg' },
     { value: -0.25, label: '-0.25 kg' },
-    { value: 0, label: 'Maintenir' },
+    { value: 0, label: 'Maintain' },
     { value: 0.25, label: '+0.25 kg' },
     { value: 0.5, label: '+0.50 kg' },
 ];
@@ -115,7 +118,7 @@ const EditValueModal: React.FC<{
                         onClick={handleSave}
                         className="w-full py-3 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all"
                     >
-                        Enregistrer
+                        Save
                     </button>
                 </div>
             </motion.div>
@@ -141,12 +144,12 @@ const MyGoalsPage: React.FC<{ user: UserProfile; targets: any; onClose: () => vo
     if (user.weeklyGoal !== undefined) {
         if (user.weeklyGoal > 0) weeklyGoalLabel = `+${user.weeklyGoal} kg`;
         else if (user.weeklyGoal < 0) weeklyGoalLabel = `${user.weeklyGoal} kg`;
-        else weeklyGoalLabel = "Maintenir";
+        else weeklyGoalLabel = "Maintain";
     } else {
         // Fallback default
         if (user.goal === 'weight_loss') weeklyGoalLabel = "-0.50 kg";
         else if (user.goal === 'muscle_gain') weeklyGoalLabel = "+0.25 kg";
-        else weeklyGoalLabel = "Maintenir";
+        else weeklyGoalLabel = "Maintain";
     }
 
     const handleEdit = (field: string) => {
@@ -154,7 +157,7 @@ const MyGoalsPage: React.FC<{ user: UserProfile; targets: any; onClose: () => vo
             case 'goal':
                 setEditingField({
                     field: 'goal',
-                    title: 'Modifier l\'objectif',
+                    title: 'Change Goal',
                     type: 'select',
                     initialValue: user.goal,
                     options: GOAL_OPTIONS.map(g => ({ label: g.label, value: g.value }))
@@ -163,7 +166,7 @@ const MyGoalsPage: React.FC<{ user: UserProfile; targets: any; onClose: () => vo
             case 'weight':
                 setEditingField({
                     field: 'weight',
-                    title: 'Poids de départ',
+                    title: 'Start Weight',
                     type: 'number',
                     initialValue: user.weight,
                     suffix: 'kg'
@@ -172,7 +175,7 @@ const MyGoalsPage: React.FC<{ user: UserProfile; targets: any; onClose: () => vo
             case 'targetWeight':
                 setEditingField({
                     field: 'targetWeight',
-                    title: 'Poids cible',
+                    title: 'Target Weight',
                     type: 'number',
                     initialValue: user.targetWeight || 72.0,
                     suffix: 'kg'
@@ -181,7 +184,7 @@ const MyGoalsPage: React.FC<{ user: UserProfile; targets: any; onClose: () => vo
             case 'activityLevel':
                 setEditingField({
                     field: 'activityLevel',
-                    title: 'Niveau d\'activité',
+                    title: 'Activity Level',
                     type: 'select',
                     initialValue: user.activityLevel || 'moderate',
                     options: Object.entries(ACTIVITY_LEVELS).map(([val, label]) => ({ label, value: val }))
@@ -190,7 +193,7 @@ const MyGoalsPage: React.FC<{ user: UserProfile; targets: any; onClose: () => vo
             case 'weeklyGoal':
                 setEditingField({
                     field: 'weeklyGoal',
-                    title: 'Objectif hebdomadaire',
+                    title: 'Weekly Goal',
                     type: 'select',
                     initialValue: user.weeklyGoal !== undefined ? user.weeklyGoal : (user.goal === 'weight_loss' ? -0.5 : (user.goal === 'muscle_gain' ? 0.25 : 0)),
                     options: WEEKLY_GOAL_OPTIONS
@@ -218,18 +221,18 @@ const MyGoalsPage: React.FC<{ user: UserProfile; targets: any; onClose: () => vo
                 <button onClick={onClose} className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors">
                     <SafeIcon icon={Icons.ArrowLeft} size={24} className="text-gray-700" />
                 </button>
-                <h2 className="text-lg font-bold text-gray-800">Mes objectifs</h2>
+                <h2 className="text-lg font-bold text-gray-800">My Goals</h2>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 <div className="space-y-2">
-                    <GoalRow icon={Icons.Target} label="Objectif" value={goalLabel} onClick={() => handleEdit('goal')} isClickable />
-                    <GoalRow icon={Icons.Scale} label="Poids de départ" value={`${user.weight} kg`} onClick={() => handleEdit('weight')} isClickable />
-                    <GoalRow icon={Icons.Target} label="Poids cible" value={`${user.targetWeight || 72.0} kg`} onClick={() => handleEdit('targetWeight')} isClickable />
-                    <GoalRow icon={Icons.Activity} label="Niveau d'activité" value={activityLabel} onClick={() => handleEdit('activityLevel')} isClickable />
-                    <GoalRow icon={Icons.Calendar} label="Objectif hebdomadaire" value={weeklyGoalLabel} onClick={() => handleEdit('weeklyGoal')} isClickable />
-                    <GoalRow icon={Icons.Flame} label="Objectif calorique" value={`${targets.calories} kcal`} onClick={onOpenCalories} isClickable />
-                    <GoalRow icon={Icons.Utensils} label="Objectifs nutritionnels" value={user.customMacros ? "Personnalisé" : "Par défaut"} onClick={onOpenNutrition} isClickable />
+                    <GoalRow icon={Icons.Target} label="Goal" value={goalLabel} onClick={() => handleEdit('goal')} isClickable />
+                    <GoalRow icon={Icons.Scale} label="Start Weight" value={`${user.weight} kg`} onClick={() => handleEdit('weight')} isClickable />
+                    <GoalRow icon={Icons.Target} label="Target Weight" value={`${user.targetWeight || 72.0} kg`} onClick={() => handleEdit('targetWeight')} isClickable />
+                    <GoalRow icon={Icons.Activity} label="Activity Level" value={activityLabel} onClick={() => handleEdit('activityLevel')} isClickable />
+                    <GoalRow icon={Icons.Calendar} label="Weekly Goal" value={weeklyGoalLabel} onClick={() => handleEdit('weeklyGoal')} isClickable />
+                    <GoalRow icon={Icons.Flame} label="Calorie Goal" value={`${targets.calories} kcal`} onClick={onOpenCalories} isClickable />
+                    <GoalRow icon={Icons.Utensils} label="Nutritional Goals" value={user.customMacros ? "Custom" : "Default"} onClick={onOpenNutrition} isClickable />
                 </div>
             </div>
 
@@ -309,21 +312,21 @@ const CalorieDistributionPage: React.FC<{ targets: any; user: UserProfile; onSav
                 <button onClick={onClose} className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors">
                     <SafeIcon icon={Icons.ArrowLeft} size={24} className="text-gray-700" />
                 </button>
-                <h2 className="text-lg font-bold text-gray-800">Répartition des calories</h2>
+                <h2 className="text-lg font-bold text-gray-800">Calorie Distribution</h2>
                 <div className="w-10" />
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 pb-32">
                 <div className="bg-sky-900/5 border border-sky-900/10 rounded-2xl p-4 mb-6 text-sky-900 text-sm font-medium leading-relaxed">
-                    Sachez que le fait de lancer un décompte de jeûne peut affecter votre répartition calorique.
+                    Note that intermittent fasting might affect your daily calorie distribution.
                 </div>
 
                 <div className="space-y-0 divide-y divide-gray-100">
                     {[
-                        { id: 'breakfast', label: 'Petit déjeuner' },
-                        { id: 'lunch', label: 'Déjeuner' },
-                        { id: 'dinner', label: 'Dîner' },
-                        { id: 'snack', label: 'En-cas' }
+                        { id: 'breakfast', label: 'Breakfast' },
+                        { id: 'lunch', label: 'Lunch' },
+                        { id: 'dinner', label: 'Dinner' },
+                        { id: 'snack', label: 'Snack' }
                     ].map((meal) => (
                         <div key={meal.id} className="flex justify-between items-center py-4">
                             <div>
@@ -357,7 +360,7 @@ const CalorieDistributionPage: React.FC<{ targets: any; user: UserProfile; onSav
 
             <div className="p-6 border-t border-gray-100">
                 <button onClick={handleSave} className="w-full py-4 bg-primary text-white rounded-2xl font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all">
-                    Enregistrer
+                    Save
                 </button>
             </div>
         </div>
@@ -365,6 +368,7 @@ const CalorieDistributionPage: React.FC<{ targets: any; user: UserProfile; onSav
 };
 
 const CalorieGoalPage: React.FC<{ targets: any; onClose: () => void; onOpenDistribution: () => void }> = ({ targets, onClose, onOpenDistribution }) => {
+    const { showToast } = useToast();
     // Function to force recalculate calories based on profile stats (BMR/TDEE)
     // Since `targets` are already calculated from profile in parent, this button just needs to 
     // trigger a refresh or perhaps reset any manual overrides if we had them.
@@ -372,7 +376,7 @@ const CalorieGoalPage: React.FC<{ targets: any; onClose: () => void; onOpenDistr
     const handleRecalculate = () => {
         // In a real app with manual overrides, this would reset them.
         // Here we just show feedback.
-        alert("Objectif calorique recalculé selon votre profil actuel.");
+        showToast("Calorie goal recalculated based on your profile.", "info");
     };
 
     return (
@@ -381,13 +385,13 @@ const CalorieGoalPage: React.FC<{ targets: any; onClose: () => void; onOpenDistr
                 <button onClick={onClose} className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors">
                     <SafeIcon icon={Icons.ArrowLeft} size={24} className="text-gray-700" />
                 </button>
-                <h2 className="text-lg font-bold text-gray-800">Objectif calorique</h2>
+                <h2 className="text-lg font-bold text-gray-800">Calorie Goal</h2>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 pb-32">
                 <div className="space-y-6">
                     <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span className="font-bold text-gray-800">Objectif calorique (kcal)</span>
+                        <span className="font-bold text-gray-800">Calorie Goal (kcal)</span>
                         <span className="font-bold text-gray-800">{targets.calories}</span>
                     </div>
                     
@@ -395,14 +399,14 @@ const CalorieGoalPage: React.FC<{ targets: any; onClose: () => void; onOpenDistr
                         onClick={handleRecalculate}
                         className="w-full text-left py-2 text-gray-800 font-medium border-b border-gray-100 hover:text-primary transition-colors"
                     >
-                        Recalculer objectif calo.
+                        Recalculate Goal
                     </button>
 
                     <div 
                         onClick={onOpenDistribution}
                         className="flex justify-between items-center py-2 border-b border-gray-100 cursor-pointer hover:bg-gray-50 -mx-2 px-2 rounded-lg transition-colors"
                     >
-                        <span className="text-gray-800 font-medium">Répartition des calories</span>
+                        <span className="text-gray-800 font-medium">Calorie Distribution</span>
                         <SafeIcon icon={Icons.ChevronRight} size={16} className="text-gray-300" />
                     </div>
                 </div>
@@ -410,7 +414,7 @@ const CalorieGoalPage: React.FC<{ targets: any; onClose: () => void; onOpenDistr
 
             <div className="p-6 border-t border-gray-100">
                 <button onClick={onClose} className="w-full py-4 bg-primary text-white rounded-2xl font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all">
-                    Enregistrer
+                    Save
                 </button>
             </div>
         </div>
@@ -424,7 +428,7 @@ const DietSelectionPage: React.FC<{ onClose: () => void; onSelect: (presetId: st
                 <button onClick={onClose} className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors">
                     <SafeIcon icon={Icons.ArrowLeft} size={24} className="text-gray-700" />
                 </button>
-                <h2 className="text-lg font-bold text-gray-800">Alimentation</h2>
+                <h2 className="text-lg font-bold text-gray-800">Diet</h2>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6">
@@ -490,15 +494,15 @@ const NutritionalGoalsPage: React.FC<{ targets: any; onClose: () => void; onSave
                 <button onClick={onClose} className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors">
                     <SafeIcon icon={Icons.ArrowLeft} size={24} className="text-gray-700" />
                 </button>
-                <h2 className="text-lg font-bold text-gray-800">Objectifs nutritionnels</h2>
+                <h2 className="text-lg font-bold text-gray-800">Nutritional Goals</h2>
                 <button onClick={handleSave} className="text-primary font-bold text-sm hover:bg-primary/10 px-3 py-1.5 rounded-full transition-colors">
-                    Enregistrer
+                    Save
                 </button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6">
                 <div onClick={onOpenDietSelection} className="flex justify-between items-center mb-8 pb-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 -mx-2 px-2 rounded-lg transition-colors">
-                    <span className="text-lg font-bold text-gray-800">Alimentation</span>
+                    <span className="text-lg font-bold text-gray-800">Diet</span>
                     <div className="flex items-center gap-2 text-gray-500">
                         <span className="text-base font-medium">{currentDietLabel}</span>
                         <SafeIcon icon={Icons.ChevronRight} size={16} className="text-gray-300" />
@@ -508,7 +512,7 @@ const NutritionalGoalsPage: React.FC<{ targets: any; onClose: () => void; onSave
                 <div className="space-y-6">
                     <div className="flex justify-between items-center py-3 border-b border-gray-100">
                         <div>
-                            <span className="block text-lg font-bold text-gray-800">Glucides</span>
+                            <span className="block text-lg font-bold text-gray-800">Carbs</span>
                             <span className="text-xs text-gray-500 font-medium">{Math.round(macros.carbs * 4)} kcal</span>
                         </div>
                         <div className="flex items-center gap-4">
@@ -519,7 +523,7 @@ const NutritionalGoalsPage: React.FC<{ targets: any; onClose: () => void; onSave
                                     onChange={(e) => handleChange('carbs', e.target.value)}
                                     className="w-full text-right font-bold text-gray-800 border-b border-gray-300 focus:border-primary outline-none bg-transparent pb-1"
                                 />
-                                <span className="absolute right-0 top-8 text-xs text-gray-400 font-medium">grammes</span>
+                                <span className="absolute right-0 top-8 text-xs text-gray-400 font-medium">grams</span>
                             </div>
                             <div className="w-12 text-right">
                                 <span className="text-lg font-bold text-gray-400">{pCarbs}%</span>
@@ -529,7 +533,7 @@ const NutritionalGoalsPage: React.FC<{ targets: any; onClose: () => void; onSave
 
                     <div className="flex justify-between items-center py-3 border-b border-gray-100">
                         <div>
-                            <span className="block text-lg font-bold text-gray-800">Protéines</span>
+                            <span className="block text-lg font-bold text-gray-800">Protein</span>
                             <span className="text-xs text-gray-500 font-medium">{Math.round(macros.protein * 4)} kcal</span>
                         </div>
                         <div className="flex items-center gap-4">
@@ -540,7 +544,7 @@ const NutritionalGoalsPage: React.FC<{ targets: any; onClose: () => void; onSave
                                     onChange={(e) => handleChange('protein', e.target.value)}
                                     className="w-full text-right font-bold text-gray-800 border-b border-gray-300 focus:border-primary outline-none bg-transparent pb-1"
                                 />
-                                <span className="absolute right-0 top-8 text-xs text-gray-400 font-medium">grammes</span>
+                                <span className="absolute right-0 top-8 text-xs text-gray-400 font-medium">grams</span>
                             </div>
                             <div className="w-12 text-right">
                                 <span className="text-lg font-bold text-gray-400">{pProt}%</span>
@@ -550,7 +554,7 @@ const NutritionalGoalsPage: React.FC<{ targets: any; onClose: () => void; onSave
 
                     <div className="flex justify-between items-center py-3 border-b border-gray-100">
                         <div>
-                            <span className="block text-lg font-bold text-gray-800">Lipides</span>
+                            <span className="block text-lg font-bold text-gray-800">Fats</span>
                             <span className="text-xs text-gray-500 font-medium">{Math.round(macros.fats * 9)} kcal</span>
                         </div>
                         <div className="flex items-center gap-4">
@@ -561,7 +565,7 @@ const NutritionalGoalsPage: React.FC<{ targets: any; onClose: () => void; onSave
                                     onChange={(e) => handleChange('fats', e.target.value)}
                                     className="w-full text-right font-bold text-gray-800 border-b border-gray-300 focus:border-primary outline-none bg-transparent pb-1"
                                 />
-                                <span className="absolute right-0 top-8 text-xs text-gray-400 font-medium">grammes</span>
+                                <span className="absolute right-0 top-8 text-xs text-gray-400 font-medium">grams</span>
                             </div>
                             <div className="w-12 text-right">
                                 <span className="text-lg font-bold text-gray-400">{pFat}%</span>
@@ -577,7 +581,7 @@ const NutritionalGoalsPage: React.FC<{ targets: any; onClose: () => void; onSave
                     
                     {(totalPercentage < 99 || totalPercentage > 101) && (
                         <div className="text-right text-xs text-amber-500 font-medium">
-                            Le total doit être proche de 100%
+                            Total should be close to 100%
                         </div>
                     )}
                 </div>
@@ -654,7 +658,7 @@ const WeightProgressPage: React.FC<{ user: UserProfile; onClose: () => void }> =
                 <button onClick={onClose} className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors">
                     <SafeIcon icon={Icons.ArrowLeft} size={24} className="text-gray-700" />
                 </button>
-                <h2 className="text-lg font-bold text-gray-800">Poids</h2>
+                <h2 className="text-lg font-bold text-gray-800">Weight</h2>
             </div>
 
             {/* Tabs */}
@@ -668,7 +672,7 @@ const WeightProgressPage: React.FC<{ user: UserProfile; onClose: () => void }> =
                                 period === t ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
                             }`}
                         >
-                            {t === 'daily' ? 'Journalier' : t === 'weekly' ? 'Hebdo' : 'Mensuel'}
+                            {t === 'daily' ? 'Daily' : t === 'weekly' ? 'Weekly' : 'Monthly'}
                         </button>
                     ))}
                 </div>
@@ -677,21 +681,21 @@ const WeightProgressPage: React.FC<{ user: UserProfile; onClose: () => void }> =
             <div className="flex-1 overflow-y-auto px-6 pb-6">
                 {/* Summary Stats */}
                 <div className="mb-8">
-                    <h3 className="text-lg font-bold text-gray-800 mb-4">Ces 30 derniers jours</h3>
+                    <h3 className="text-lg font-bold text-gray-800 mb-4">Last 30 Days</h3>
                     <div className="space-y-3 text-sm font-medium text-gray-500">
                         <div className="flex justify-between">
-                            <span>• Poids de départ: {startWeight} kg</span>
+                            <span>• Start Weight: {startWeight} kg</span>
                         </div>
                         <div className="flex justify-between">
                             <span className="flex items-center gap-1">
-                                • Poids cible: <span className="text-primary font-bold">{targetWeight} kg</span>
+                                • Target Weight: <span className="text-primary font-bold">{targetWeight} kg</span>
                             </span>
                         </div>
                         <div className="flex justify-between">
-                            <span>• Actuellement: {currentWeight} kg</span>
+                            <span>• Current: {currentWeight} kg</span>
                         </div>
                         <div className="flex justify-between">
-                            <span>• Différence: {difference} kg</span>
+                            <span>• Difference: {difference} kg</span>
                         </div>
                     </div>
                 </div>
@@ -734,12 +738,12 @@ const WeightProgressPage: React.FC<{ user: UserProfile; onClose: () => void }> =
 
                 {/* History List */}
                 <div>
-                    <h3 className="text-lg font-bold text-gray-800 mb-4">Historique</h3>
+                    <h3 className="text-lg font-bold text-gray-800 mb-4">History</h3>
                     <div className="space-y-4">
                         {history.slice().reverse().map((entry, idx) => (
                             <div key={idx} className="flex justify-between items-center py-2 border-b border-gray-50 last:border-0">
                                 <span className="text-gray-500 font-medium">
-                                    {new Date(entry.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                    {new Date(entry.date).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}
                                 </span>
                                 <span className="font-bold text-gray-800">{entry.weight} kg</span>
                             </div>
@@ -781,16 +785,16 @@ const ProfileEditor: React.FC<{ user: UserProfile; onSave: (u: UserProfile) => P
                 <button onClick={onCancel} className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors">
                     <SafeIcon icon={Icons.ArrowLeft} size={24} className="text-gray-700" />
                 </button>
-                <h2 className="text-lg font-bold text-gray-800">Modifier le profil</h2>
+                <h2 className="text-lg font-bold text-gray-800">Edit Profile</h2>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-8">
                 {/* Personal Info */}
                 <section>
-                    <h3 className="text-lg font-bold text-gray-800 mb-4">Informations personnelles</h3>
+                    <h3 className="text-lg font-bold text-gray-800 mb-4">Personal Info</h3>
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-500 mb-1">Nom</label>
+                            <label className="block text-sm font-medium text-gray-500 mb-1">Name</label>
                             <input 
                                 type="text" 
                                 value={formData.name} 
@@ -800,7 +804,7 @@ const ProfileEditor: React.FC<{ user: UserProfile; onSave: (u: UserProfile) => P
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-500 mb-1">Âge</label>
+                                <label className="block text-sm font-medium text-gray-500 mb-1">Age</label>
                                 <input 
                                     type="number" 
                                     value={formData.age} 
@@ -809,21 +813,21 @@ const ProfileEditor: React.FC<{ user: UserProfile; onSave: (u: UserProfile) => P
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-500 mb-1">Genre</label>
+                                <label className="block text-sm font-medium text-gray-500 mb-1">Gender</label>
                                 <select 
                                     value={formData.gender} 
                                     onChange={e => setFormData({...formData, gender: e.target.value as any})}
                                     className="w-full p-3 bg-gray-50 rounded-xl font-semibold text-gray-800 outline-none focus:ring-2 focus:ring-primary/20 appearance-none"
                                 >
-                                    <option value="male">Homme</option>
-                                    <option value="female">Femme</option>
-                                    <option value="other">Autre</option>
+                                    <option value="male">Male</option>
+                                    <option value="female">Female</option>
+                                    <option value="other">Other</option>
                                 </select>
                             </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-500 mb-1">Taille (cm)</label>
+                                <label className="block text-sm font-medium text-gray-500 mb-1">Height (cm)</label>
                                 <input 
                                     type="number" 
                                     value={formData.height} 
@@ -832,7 +836,7 @@ const ProfileEditor: React.FC<{ user: UserProfile; onSave: (u: UserProfile) => P
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-500 mb-1">Poids (kg)</label>
+                                <label className="block text-sm font-medium text-gray-500 mb-1">Weight (kg)</label>
                                 <input 
                                     type="number" 
                                     value={formData.weight} 
@@ -846,7 +850,7 @@ const ProfileEditor: React.FC<{ user: UserProfile; onSave: (u: UserProfile) => P
 
                 {/* Food Prefs */}
                 <section>
-                    <h3 className="text-lg font-bold text-gray-800 mb-4">Préférences alimentaires</h3>
+                    <h3 className="text-lg font-bold text-gray-800 mb-4">Food Preferences</h3>
                     
                     <div className="mb-6">
                         <label className="block text-sm font-medium text-gray-500 mb-2">Allergies</label>
@@ -863,7 +867,7 @@ const ProfileEditor: React.FC<{ user: UserProfile; onSave: (u: UserProfile) => P
                                 type="text" 
                                 value={newAllergy}
                                 onChange={e => setNewAllergy(e.target.value)}
-                                placeholder="Ajouter une allergie..."
+                                placeholder="Add allergy..."
                                 className="flex-1 p-2 bg-gray-50 rounded-lg text-sm outline-none"
                                 onKeyDown={e => { if(e.key === 'Enter') { addTag('allergies', newAllergy); setNewAllergy(''); } }}
                             />
@@ -874,7 +878,7 @@ const ProfileEditor: React.FC<{ user: UserProfile; onSave: (u: UserProfile) => P
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-500 mb-2">Je n'aime pas</label>
+                        <label className="block text-sm font-medium text-gray-500 mb-2">Dislikes</label>
                         <div className="flex flex-wrap gap-2 mb-2">
                             {(formData.dislikes || []).map(item => (
                                 <span key={item} className="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm font-medium flex items-center gap-1">
@@ -888,7 +892,7 @@ const ProfileEditor: React.FC<{ user: UserProfile; onSave: (u: UserProfile) => P
                                 type="text" 
                                 value={newDislike}
                                 onChange={e => setNewDislike(e.target.value)}
-                                placeholder="Ajouter un aliment..."
+                                placeholder="Add dislike..."
                                 className="flex-1 p-2 bg-gray-50 rounded-lg text-sm outline-none"
                                 onKeyDown={e => { if(e.key === 'Enter') { addTag('dislikes', newDislike); setNewDislike(''); } }}
                             />
@@ -901,13 +905,13 @@ const ProfileEditor: React.FC<{ user: UserProfile; onSave: (u: UserProfile) => P
 
                 {/* Goals Link */}
                 <section>
-                    <h3 className="text-lg font-bold text-gray-800 mb-4">Objectifs</h3>
+                    <h3 className="text-lg font-bold text-gray-800 mb-4">Goals</h3>
                     <div onClick={onOpenGoals} className="flex justify-between items-center p-4 bg-gray-50 rounded-2xl cursor-pointer hover:bg-gray-100 transition-colors">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-primary shadow-sm">
                                 <SafeIcon icon={Icons.Target} size={20} />
                             </div>
-                            <span className="font-bold text-gray-800">Mes objectifs</span>
+                            <span className="font-bold text-gray-800">My Goals</span>
                         </div>
                         <SafeIcon icon={Icons.ChevronRight} size={20} className="text-gray-400" />
                     </div>
@@ -916,7 +920,7 @@ const ProfileEditor: React.FC<{ user: UserProfile; onSave: (u: UserProfile) => P
 
             <div className="p-6 border-t border-gray-100">
                 <button onClick={handleSave} className="w-full py-4 bg-primary text-white rounded-2xl font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all">
-                    Enregistrer
+                    Save
                 </button>
             </div>
         </div>
@@ -924,6 +928,7 @@ const ProfileEditor: React.FC<{ user: UserProfile; onSave: (u: UserProfile) => P
 };
 
 const ProfileDashboard: React.FC<{ user: UserProfile; onEdit: () => void; onOpenGoals: () => void; onOpenProgress: () => void; onUpdateUser: (updates: Partial<UserProfile>) => Promise<void> }> = ({ user, onEdit, onOpenGoals, onOpenProgress, onUpdateUser }) => {
+    const { showToast } = useToast();
     const [logData, setLogData] = useState<DailyLog | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [uploading, setUploading] = useState(false);
@@ -947,7 +952,7 @@ const ProfileDashboard: React.FC<{ user: UserProfile; onEdit: () => void; onOpen
                 await onUpdateUser({ photoURL: url });
             } catch (error) {
                 console.error("Error uploading profile image:", error);
-                alert("Erreur lors du téléchargement de l'image.");
+                showToast("Erreur lors du téléchargement de l'image.", "error");
             } finally {
                 setUploading(false);
             }
@@ -979,12 +984,12 @@ const ProfileDashboard: React.FC<{ user: UserProfile; onEdit: () => void; onOpen
         progressPercentage = Math.max(0, Math.min(100, (lostSoFar / totalToLose) * 100));
         
         if (currentWeight <= targetWeight) {
-            statusMessage = "Objectif atteint ! Bravo !";
+            statusMessage = "Goal reached! Well done!";
         } else {
             const remainingWeight = currentWeight - targetWeight;
             const weeklyRate = Math.abs(user.weeklyGoal || 0.5);
             const weeksRemaining = weeklyRate > 0 ? Math.ceil(remainingWeight / weeklyRate) : 4;
-            statusMessage = `plus que ${weeksRemaining} semaines avant d'atteindre votre objectif !`;
+            statusMessage = `${weeksRemaining} weeks to go!`;
         }
     } else {
         // Goal: Gain Weight
@@ -993,12 +998,12 @@ const ProfileDashboard: React.FC<{ user: UserProfile; onEdit: () => void; onOpen
         progressPercentage = Math.max(0, Math.min(100, (gainedSoFar / totalToGain) * 100));
         
         if (currentWeight >= targetWeight) {
-            statusMessage = "Objectif atteint ! Bravo !";
+            statusMessage = "Goal reached! Well done!";
         } else {
              const remainingWeight = targetWeight - currentWeight;
              const weeklyRate = Math.abs(user.weeklyGoal || 0.25);
              const weeksRemaining = weeklyRate > 0 ? Math.ceil(remainingWeight / weeklyRate) : 4;
-             statusMessage = `plus que ${weeksRemaining} semaines avant d'atteindre votre objectif !`;
+             statusMessage = `${weeksRemaining} weeks to go!`;
         }
     }
     
@@ -1016,7 +1021,7 @@ const ProfileDashboard: React.FC<{ user: UserProfile; onEdit: () => void; onOpen
 
             {/* Header */}
             <div className="px-6 py-6 flex justify-between items-center">
-                <h1 className="text-3xl font-black text-gray-800">Profil</h1>
+                <h1 className="text-3xl font-black text-gray-800">Profile</h1>
                 <div className="flex gap-3">
                     <button onClick={onEdit} className="p-2 bg-white rounded-full text-gray-400 hover:text-primary transition-colors shadow-sm">
                         <SafeIcon icon={Icons.Settings} size={20} />
@@ -1052,11 +1057,11 @@ const ProfileDashboard: React.FC<{ user: UserProfile; onEdit: () => void; onOpen
                             </div>
                         </button>
                         <div className="flex-1 pt-1" onClick={onEdit} style={{ cursor: 'pointer' }}>
-                            <h2 className="text-2xl font-black text-gray-800 mb-1">{user.name || 'Utilisateur'}</h2>
+                            <h2 className="text-2xl font-black text-gray-800 mb-1">{user.name || 'User'}</h2>
                             <div className="flex flex-wrap gap-y-1 gap-x-3 text-sm font-medium text-gray-500">
                                 <div className="flex items-center gap-1.5">
                                     <SafeIcon icon={Icons.Cake} size={14} />
-                                    <span>{user.age} ans</span>
+                                    <span>{user.age} years</span>
                                 </div>
                                 <span className="text-gray-300">•</span>
                                 <div className="flex items-center gap-1.5">
@@ -1074,7 +1079,7 @@ const ProfileDashboard: React.FC<{ user: UserProfile; onEdit: () => void; onOpen
 
                     <div className="flex justify-between items-end px-2 relative z-10">
                         <div>
-                            <span className="text-xs font-bold text-gray-400 uppercase tracking-wide block mb-1">kcal restantes</span>
+                            <span className="text-xs font-bold text-gray-400 uppercase tracking-wide block mb-1">kcal remaining</span>
                             <span className="text-4xl font-black text-gray-800 tracking-tight">{Math.round(remaining)}</span>
                         </div>
                     </div>
@@ -1084,19 +1089,19 @@ const ProfileDashboard: React.FC<{ user: UserProfile; onEdit: () => void; onOpen
             {/* Progress Section */}
             <div className="px-6 mb-6">
                 <div className="flex justify-between items-center mb-3">
-                    <h3 className="font-bold text-gray-800">Mes progrès</h3>
-                    <button onClick={onOpenProgress} className="text-primary text-sm font-bold hover:underline">Analyse</button>
+                    <h3 className="font-bold text-gray-800">My Progress</h3>
+                    <button onClick={onOpenProgress} className="text-primary text-sm font-bold hover:underline">Analysis</button>
                 </div>
                 <div onClick={onOpenProgress} className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors">
                     <div className="text-center mb-6">
                         <p className="font-bold text-gray-800 text-lg">
                             {isWeightLoss 
-                                ? `Vous avez perdu ${Math.abs(Number(weightLost))} kg !` 
-                                : `Vous avez pris ${Math.abs(Number(weightGained))} kg !`
+                                ? `You lost ${Math.abs(Number(weightLost))} kg!` 
+                                : `You gained ${Math.abs(Number(weightGained))} kg!`
                             }
                         </p>
                         <p className="text-xs text-gray-400 font-medium mt-1">
-                            {statusMessage}
+                            {statusMessage.replace("plus que", "").replace("semaines avant d'atteindre votre objectif !", "weeks to reach your goal!")}
                         </p>
                     </div>
                     
@@ -1121,13 +1126,13 @@ const ProfileDashboard: React.FC<{ user: UserProfile; onEdit: () => void; onOpen
             {/* Goals Section */}
             <div className="px-6 mb-6">
                 <div className="flex justify-between items-center mb-3">
-                    <h3 className="font-bold text-gray-800">Mes objectifs</h3>
-                    <button onClick={onOpenGoals} className="text-primary text-sm font-bold hover:underline">Editer</button>
+                    <h3 className="font-bold text-gray-800">My Goals</h3>
+                    <button onClick={onOpenGoals} className="text-primary text-sm font-bold hover:underline">Edit</button>
                 </div>
                 <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4 cursor-pointer hover:bg-gray-50 transition-colors" onClick={onOpenGoals}>
-                    <GoalItem icon={Icons.Utensils} label="Alimentation" value="Standard" />
-                    <GoalItem icon={Icons.Target} label="Objectif" value={goalLabel} />
-                    <GoalItem icon={Icons.Scale} label="Poids" value={`${user.weight} kg`} />
+                    <GoalItem icon={Icons.Utensils} label="Diet" value={user.customMacros ? "Custom" : "Default"} />
+                    <GoalItem icon={Icons.Target} label="Goal" value={goalLabel} />
+                    <GoalItem icon={Icons.Scale} label="Weight" value={`${user.weight} kg`} />
                     <GoalItem icon={Icons.Zap} label="Calories" value={`${targets.calories} kcal`} />
                 </div>
             </div>
@@ -1137,11 +1142,13 @@ const ProfileDashboard: React.FC<{ user: UserProfile; onEdit: () => void; onOpen
 
 // ... (ProfileEditor component remains unchanged)
 
-export const Profile: React.FC<ProfileProps> = ({ user, onSave }) => {
-    const [mode, setMode] = useState<'view' | 'edit' | 'goals' | 'calories' | 'nutrition' | 'diet' | 'calorie-distribution' | 'progress'>('view');
+export const Profile: React.FC<ProfileProps> = ({ user, onSave, mode, onModeChange }) => {
+    // Alias for internal compatibility
+    const setMode = onModeChange;
+    
     // ... (rest of state and effects)
     const [selectedDiet, setSelectedDiet] = useState<string>('default');
-    const [currentDietLabel, setCurrentDietLabel] = useState<string>(user.customMacros ? "Personnalisé" : "Par défaut");
+    const [currentDietLabel, setCurrentDietLabel] = useState<string>(user.customMacros ? "Custom" : "Default");
 
     // Derived state for nutritional goals page to allow previewing presets
     const [previewTargets, setPreviewTargets] = useState<any>(calculateDailyTargets(user));
@@ -1173,7 +1180,7 @@ export const Profile: React.FC<ProfileProps> = ({ user, onSave }) => {
             ...user,
             customMacros: macros
         });
-        setCurrentDietLabel(selectedDiet === 'default' ? 'Par défaut' : DIET_PRESETS[selectedDiet]?.label || 'Personnalisé');
+        setCurrentDietLabel(selectedDiet === 'default' ? 'Default' : DIET_PRESETS[selectedDiet]?.label || 'Custom');
     };
 
     const handleSaveDistribution = async (dist: { breakfast: number, lunch: number, dinner: number, snack: number }) => {

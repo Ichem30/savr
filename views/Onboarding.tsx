@@ -247,7 +247,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialData 
                         <div className="w-24 h-24 bg-gradient-to-br from-emerald-400 to-primary rounded-[2rem] flex items-center justify-center shadow-2xl shadow-emerald-200 mb-8 rotate-3 transform hover:rotate-6 transition-transform duration-500">
                             <Icons.ChefHat size={48} className="text-white drop-shadow-md" />
                         </div>
-                        <h1 className="text-3xl font-extrabold text-gray-900 mb-3 tracking-tight">Pantry<span className="text-primary">Chef</span></h1>
+                        <h1 className="text-3xl font-extrabold text-gray-900 mb-3 tracking-tight">Savr</h1>
                         <p className="text-lg text-gray-500 max-w-xs mx-auto mb-12">Your personal AI nutritionist and chef. Let's set up your profile.</p>
                         
                         <button onClick={nextStep} className="w-full max-w-xs py-4 bg-gray-900 text-white font-bold rounded-2xl shadow-xl shadow-gray-200 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2">

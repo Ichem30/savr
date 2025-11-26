@@ -3,12 +3,17 @@ import { Recipe } from '../types';
 import { Icons } from '../components/Icons';
 import { motion, AnimatePresence } from 'framer-motion';
 import { addMealToLog, auth } from '../services/firebase';
+import { useToast } from '../components/ToastProvider';
 
 interface RecipeDetailProps {
   recipe: Recipe;
   onBack: () => void;
   isSaved?: boolean;
   onToggleSave?: (recipe: Recipe) => void;
+  // New props for editing log entry
+  initialPortions?: number;
+  onUpdateLog?: (portions: number, calories: number, macros: any) => void;
+  defaultMealType?: string;
 }
 
 const StepTimer = ({ duration, onComplete }: { duration: number, onComplete?: () => void }) => {
@@ -112,24 +117,52 @@ const scaleIngredient = (ingredient: string, factor: number): string => {
     return ingredient;
 };
 
-export const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onBack, isSaved, onToggleSave }) => {
+export const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onBack, isSaved, onToggleSave, initialPortions, onUpdateLog, defaultMealType }) => {
+  const { showToast } = useToast();
   const [cookingMode, setCookingMode] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [showIngredients, setShowIngredients] = useState(false);
-  const [portions, setPortions] = useState(1);
+  const [portions, setPortions] = useState(initialPortions || 1);
+
+  const handleUpdateLog = () => {
+      if (onUpdateLog) {
+          const newMacros = {
+              protein: Math.round(parseInt(recipe.macros.protein) * portions),
+              carbs: Math.round(parseInt(recipe.macros.carbs) * portions),
+              fats: Math.round(parseInt(recipe.macros.fats) * portions),
+          };
+          onUpdateLog(portions, Math.round(recipe.calories * portions), newMacros);
+      }
+  };
 
   const handleAddToJournal = async () => {
       if (!auth.currentUser) return;
       
       const now = new Date();
-      const hour = now.getHours();
-      let mealType = 'snack';
-      let mealLabel = 'En-cas';
-      if (hour < 11) { mealType = 'breakfast'; mealLabel = 'Petit déjeuner'; }
-      else if (hour < 15) { mealType = 'lunch'; mealLabel = 'Déjeuner'; }
-      else if (hour < 18) { mealType = 'snack'; mealLabel = 'En-cas'; }
-      else { mealType = 'dinner'; mealLabel = 'Dîner'; }
+      let mealType = defaultMealType || 'snack';
+      
+      // Only infer if no default provided
+      if (!defaultMealType) {
+          const hour = now.getHours();
+          if (hour < 11) { mealType = 'breakfast'; }
+          else if (hour < 15) { mealType = 'lunch'; }
+          else if (hour < 18) { mealType = 'snack'; }
+          else { mealType = 'dinner'; }
+      }
 
+      const mealLabels: Record<string, string> = {
+          'breakfast': 'Breakfast',
+          'lunch': 'Lunch',
+          'dinner': 'Dinner',
+          'snack': 'Snack'
+      };
+      
+      // Handle Drink/Dessert fallback
+      if (!['breakfast', 'lunch', 'dinner', 'snack'].includes(mealType)) {
+          mealType = 'snack'; 
+      }
+
+      const mealLabel = mealLabels[mealType] || 'Meal';
       const dateStr = now.toISOString().split('T')[0];
       
       try {
@@ -146,7 +179,7 @@ export const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onBack, isSa
                   fats: Math.round(parseInt(recipe.macros.fats) * portions),
               }
           });
-          alert(`Recette (${portions} portions) ajoutée au ${mealLabel} !`);
+          showToast(`Recipe (${portions} servings) added to ${mealLabel}!`, "success");
       } catch (e) {
           console.error(e);
       }
@@ -204,14 +237,16 @@ export const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onBack, isSa
                 <div className="relative bg-gray-800/40 backdrop-blur-md border border-gray-700/50 p-8 rounded-3xl shadow-2xl overflow-hidden">
                     <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-primary to-transparent opacity-50" />
                     
-                    <div className="mb-4 flex items-center gap-3 text-gray-400 text-sm font-medium uppercase tracking-widest">
-                        <span className="w-8 h-[1px] bg-gray-600"></span>
-                        Instruction
-                    </div>
+                    {!onUpdateLog && (
+                        <div className="mb-4 flex items-center gap-3 text-gray-400 text-sm font-medium uppercase tracking-widest">
+                            <span className="w-8 h-[1px] bg-gray-600"></span>
+                            Instruction
+                        </div>
+                    )}
                     
-                    <RichInstruction text={recipe.instructions[currentStep]} />
+                    {!onUpdateLog && <RichInstruction text={recipe.instructions[currentStep]} />}
 
-                    {currentStep === recipe.instructions.length - 1 && (
+                    {currentStep === recipe.instructions.length - 1 && !onUpdateLog && (
                         <div className="mt-8 flex flex-col gap-4">
                             <motion.div 
                                 initial={{ scale: 0.8, opacity: 0 }}
@@ -227,7 +262,7 @@ export const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onBack, isSa
                                 onClick={handleAddToJournal}
                                 className="w-full py-3 bg-white/10 hover:bg-white/20 border border-white/10 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"
                             >
-                                <Icons.Book size={18} /> Ajouter au Journal
+                                <Icons.Book size={18} /> Add to Journal
                             </button>
                         </div>
                     )}
@@ -418,7 +453,7 @@ export const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onBack, isSa
                 <span className="leading-relaxed">{scaleIngredient(ing, portions)}</span>
               </motion.li>
             ))}
-            {recipe.missingIngredients.length > 0 && (
+            {recipe.missingIngredients.length > 0 && !onUpdateLog && (
                  <li className="mt-4 pt-4 border-t border-dashed border-gray-200">
                     <span className="text-sm font-bold text-orange-500 block mb-2">Missing / To Buy:</span>
                     {recipe.missingIngredients.map((ing, i) => (
@@ -433,6 +468,7 @@ export const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onBack, isSa
         </div>
 
         {/* Instructions */}
+        {!onUpdateLog && (
         <div className="mb-8">
             <h3 className="font-bold text-xl mb-4 flex items-center gap-2 text-gray-800">
                 <span className="w-1 h-6 bg-secondary rounded-full"></span>
@@ -456,21 +492,38 @@ export const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onBack, isSa
                 ))}
             </div>
         </div>
+        )}
 
         {/* Integrated Cooking Mode Button - Moved here after instructions */}
-        <motion.button 
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ delay: 0.5 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => setCookingMode(true)}
-          className="w-full py-4 bg-primary text-white rounded-2xl font-bold shadow-lg shadow-primary/20 flex items-center justify-center gap-3 hover:bg-emerald-600 transition-all mb-10"
-        >
-          <div className="bg-white/20 p-1 rounded-full">
-            <Icons.Play className="w-5 h-5 fill-current" /> 
-          </div>
-          <span>Start Cooking Mode</span>
-        </motion.button>
+        {onUpdateLog ? (
+            <motion.button 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.5 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleUpdateLog}
+              className="w-full py-4 bg-primary text-white rounded-2xl font-bold shadow-lg shadow-primary/20 flex items-center justify-center gap-3 hover:bg-emerald-600 transition-all mb-10 sticky bottom-6"
+            >
+              <div className="bg-white/20 p-1 rounded-full">
+                <Icons.Check className="w-5 h-5 fill-current" /> 
+              </div>
+              <span>Save</span>
+            </motion.button>
+        ) : (
+            <motion.button 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.5 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setCookingMode(true)}
+              className="w-full py-4 bg-primary text-white rounded-2xl font-bold shadow-lg shadow-primary/20 flex items-center justify-center gap-3 hover:bg-emerald-600 transition-all mb-10"
+            >
+              <div className="bg-white/20 p-1 rounded-full">
+                <Icons.Play className="w-5 h-5 fill-current" /> 
+              </div>
+              <span>Start Cooking Mode</span>
+            </motion.button>
+        )}
       </motion.div>
     </div>
   );

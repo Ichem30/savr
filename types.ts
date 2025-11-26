@@ -76,7 +76,7 @@ export interface ChatMessage {
   isFunctionCall?: boolean;
 }
 
-export type ViewState = 'auth' | 'onboarding' | 'edit-profile' | 'pantry' | 'recipes' | 'generated-recipes' | 'recipe-detail' | 'cooking-mode' | 'profile' | 'journal';
+export type ViewState = 'auth' | 'onboarding' | 'edit-profile' | 'pantry' | 'recipes' | 'recipe-filter' | 'generated-recipes' | 'recipe-detail' | 'cooking-mode' | 'profile' | 'journal';
 
 export interface MealEntry {
   id: string;

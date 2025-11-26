@@ -14,6 +14,7 @@ import { ChatAssistant } from './components/ChatAssistant';
 import { AnimatePresence, motion } from 'framer-motion';
 import { PageTransition } from './components/PageTransition';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { ToastProvider, useToast } from './components/ToastProvider';
 import { 
   auth, 
   subscribeToProfile, 
@@ -26,6 +27,8 @@ import {
   saveRecipe,
   deleteSavedRecipe
 } from './services/firebase';
+
+import { RecipeFilter } from './views/RecipeFilter';
 
 // Helper for updating weight history
 const updateWeightHistory = (profile: UserProfile, existingHistory: { date: string, weight: number }[] = []): UserProfile => {
@@ -43,9 +46,46 @@ const updateWeightHistory = (profile: UserProfile, existingHistory: { date: stri
     return finalProfile;
 };
 
-const App: React.FC = () => {
+// Helper to calculate missing ingredients and match percentage
+const calculateRecipeMatch = (recipe: Recipe, pantry: Ingredient[]): Recipe => {
+    const normalize = (s: string) => s.toLowerCase().trim();
+    const pantryNames = new Set(pantry.map(p => normalize(p.name)));
+    
+    // Only consider non-staples if needed, but for now simple name matching
+    // We assume recipe.ingredients contains strings like "2 eggs", "100g flour"
+    // Ideally, recipes should have structured ingredients, but we have to work with strings from Gemini
+    // Simple heuristic: check if any pantry item name appears in the ingredient string
+    
+    const ingredients = recipe.ingredients;
+    const present = [];
+    const missing = [];
+    
+    for (const ing of ingredients) {
+        const ingLower = normalize(ing);
+        // Check if any pantry item name is a substring of the ingredient
+        const isPresent = Array.from(pantryNames).some(pName => ingLower.includes(pName));
+        if (isPresent) {
+            present.push(ing);
+        } else {
+            missing.push(ing);
+        }
+    }
+    
+    const matchPercentage = Math.round((present.length / ingredients.length) * 100);
+    
+    return {
+        ...recipe,
+        missingIngredients: missing,
+        matchPercentage: matchPercentage
+    };
+};
+
+const AppContent: React.FC = () => {
+  const { showToast } = useToast();
+
   // Start in 'auth' view by default
   const [view, setView] = useState<ViewState>('auth');
+  const [profileMode, setProfileMode] = useState<'view' | 'edit' | 'goals' | 'calories' | 'nutrition' | 'diet' | 'calorie-distribution' | 'progress'>('view');
   // Track previous view for back navigation logic (especially for RecipeDetail)
   const [lastView, setLastView] = useState<ViewState>('pantry');
   
@@ -59,6 +99,7 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const [isScanning, setIsScanning] = useState(false);
+  const [generationContext, setGenerationContext] = useState<{ mealType?: string }>({});
   
   const appConstraintsRef = React.useRef<HTMLDivElement>(null);
 
@@ -126,7 +167,7 @@ const App: React.FC = () => {
             await signInGoogle();
             return;
         } catch(e) {
-             alert("Please sign in to save your profile.");
+             showToast("Please sign in to save your profile.", "error");
              return;
         }
     }
@@ -153,9 +194,15 @@ const App: React.FC = () => {
                 return addPantryItem(currentUser.uid, newItem);
             });
             await Promise.all(promises);
+            showToast("Kitchen initialized with staples!", "success");
         } catch (error) {
             console.error("Error adding initial pantry items:", error);
+            showToast("Could not add pantry staples.", "warning");
         }
+    } else if (!wasEditing) {
+        showToast("Profile created successfully!", "success");
+    } else {
+        showToast("Profile updated!", "success");
     }
     
     if (wasEditing) {
@@ -172,18 +219,20 @@ const App: React.FC = () => {
     const selectedIngredients = pantry.filter(i => i.isSelected !== false);
 
     if (selectedIngredients.length === 0) {
-      alert("Please select at least one ingredient!");
+      showToast("Please select at least one ingredient!", "warning");
       return;
     }
 
     setLoading(true);
+    setGenerationContext({ mealType: options?.mealType });
     setView('generated-recipes');
     try {
       const recipes = await generateRecipes(userProfile, selectedIngredients, strictMode, options);
       setGeneratedRecipes(recipes);
+      showToast(`Generated ${recipes.length} recipes for you!`, "success");
     } catch (error) {
       console.error(error);
-      alert("Failed to generate recipes. Please try again.");
+      showToast("Failed to generate recipes. Please try again.", "error");
       setView('pantry');
     } finally {
       setLoading(false);
@@ -203,8 +252,10 @@ const App: React.FC = () => {
       
       if (saved) {
           await deleteSavedRecipe(currentUser.uid, saved.id);
+          showToast("Recipe removed from cookbook.", "info");
       } else {
           await saveRecipe(currentUser.uid, recipe);
+          showToast("Recipe saved to cookbook!", "success");
       }
   };
 
@@ -216,6 +267,7 @@ const App: React.FC = () => {
     const finalProfile = updateWeightHistory(updatedProfile, userProfile.weightHistory || []);
 
     await saveUserProfile(currentUser.uid, finalProfile);
+    showToast("Profile saved.", "success");
   };
 
   // --- Wrapper Functions for Firebase Actions ---
@@ -230,6 +282,7 @@ const App: React.FC = () => {
          quantity: quantity || existingItem.quantity, 
          isSelected: true 
        });
+       showToast(`Updated ${existingItem.name}`, "success");
      } else {
         const newItem: Ingredient = {
             id: Date.now().toString(),
@@ -239,6 +292,7 @@ const App: React.FC = () => {
             isScanned: false
         };
         await addPantryItem(currentUser.uid, newItem);
+        showToast(`Added ${name} to pantry`, "success");
      }
   };
 
@@ -255,8 +309,10 @@ const App: React.FC = () => {
             nutrition: item.nutrition || existingItem.nutrition,
             image: item.image || existingItem.image
         });
+        showToast(`Updated ${existingItem.name}`, "success");
     } else {
         await addPantryItem(currentUser.uid, item);
+        showToast(`Added ${item.name}`, "success");
     }
   };
 
@@ -268,6 +324,7 @@ const App: React.FC = () => {
   const onPantryRemove = async (id: string) => {
     if (!currentUser) return;
     await deletePantryItem(currentUser.uid, id);
+    showToast("Item removed.", "info");
   };
 
   // This is strictly for the Chat Assistant to make specific field updates
@@ -307,7 +364,7 @@ const App: React.FC = () => {
 
   // Bottom Navigation Bar
   const NavBar = () => {
-    if (view === 'auth' || view === 'onboarding' || view === 'edit-profile' || view === 'recipe-detail' || view === 'cooking-mode' || isScanning) return null;
+    if (view === 'auth' || view === 'onboarding' || view === 'edit-profile' || view === 'recipe-detail' || view === 'cooking-mode' || isScanning || view === 'recipe-filter' || (view === 'profile' && profileMode !== 'view')) return null;
 
     return (
       <div className="absolute bottom-6 left-0 right-0 px-6 z-50 flex justify-center pointer-events-none">
@@ -418,7 +475,7 @@ const App: React.FC = () => {
               <PageTransition key="pantry">
                 <Pantry 
                   pantry={pantry} 
-                  onGenerate={handleGenerateRecipes}
+                  onGenerate={() => setView('recipe-filter')}
                   onAdd={onPantryAdd}
                   onUpdate={onPantryUpdate}
                   onRemove={onPantryRemove}
@@ -427,17 +484,26 @@ const App: React.FC = () => {
                 />
               </PageTransition>
             )}
+
+            {view === 'recipe-filter' && (
+              <PageTransition key="recipe-filter">
+                <RecipeFilter
+                  onGenerate={(strictMode, options) => handleGenerateRecipes(strictMode, options)}
+                  onBack={() => setView('pantry')}
+                />
+              </PageTransition>
+            )}
             
             {view === 'recipes' && (
               <PageTransition key="recipes">
                 <RecipeFeed 
-                  recipes={savedRecipes} 
+                  recipes={savedRecipes.map(r => calculateRecipeMatch(r, pantry))} 
                   loading={loading} 
                   onSelectRecipe={handleRecipeSelect}
                   onBack={() => setView('pantry')}
                   savedRecipeTitles={savedRecipes.map(r => r.title)}
                   onToggleSave={handleToggleSaveRecipe}
-                  title="Mes recettes"
+                  title="My Recipes"
                 />
               </PageTransition>
             )}
@@ -451,7 +517,7 @@ const App: React.FC = () => {
                   onBack={() => setView('pantry')}
                   savedRecipeTitles={savedRecipes.map(r => r.title)}
                   onToggleSave={handleToggleSaveRecipe}
-                  title="Recettes suggérées"
+                  title="Suggested Recipes"
                 />
               </PageTransition>
             )}
@@ -463,13 +529,19 @@ const App: React.FC = () => {
                   onBack={() => setView(lastView)} 
                   isSaved={savedRecipes.some(r => r.title === selectedRecipe.title)}
                   onToggleSave={handleToggleSaveRecipe}
+                  defaultMealType={generationContext.mealType}
                 />
               </PageTransition>
             )}
 
             {view === 'profile' && userProfile && (
                <PageTransition key="profile">
-                 <Profile user={userProfile} onSave={handleSaveProfile} />
+                 <Profile 
+                    user={userProfile} 
+                    onSave={handleSaveProfile} 
+                    mode={profileMode}
+                    onModeChange={setProfileMode}
+                 />
                </PageTransition>
             )}
 
@@ -502,6 +574,14 @@ const App: React.FC = () => {
       </div>
       </ErrorBoundary>
     </div>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <ToastProvider>
+        <AppContent />
+    </ToastProvider>
   );
 };
 

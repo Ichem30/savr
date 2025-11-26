@@ -15,10 +15,10 @@ interface JournalProps {
 }
 
 const MEAL_TYPES = [
-    { id: 'breakfast', label: 'Petit déjeuner', icon: Icons.Coffee, color: 'text-amber-600 bg-amber-500' },
-    { id: 'lunch', label: 'Déjeuner', icon: Icons.Utensils, color: 'text-primary bg-primary' },
-    { id: 'dinner', label: 'Dîner', icon: Icons.Moon, color: 'text-indigo-500 bg-indigo-500' },
-    { id: 'snack', label: 'En-cas', icon: Icons.Apple, color: 'text-rose-500 bg-rose-500' },
+    { id: 'breakfast', label: 'Breakfast', icon: Icons.Coffee, color: 'text-amber-600 bg-amber-500' },
+    { id: 'lunch', label: 'Lunch', icon: Icons.Utensils, color: 'text-primary bg-primary' },
+    { id: 'dinner', label: 'Dinner', icon: Icons.Moon, color: 'text-indigo-500 bg-indigo-500' },
+    { id: 'snack', label: 'Snack', icon: Icons.Apple, color: 'text-rose-500 bg-rose-500' },
 ];
 
 export const Journal: React.FC<JournalProps> = ({ user, savedRecipes = [], onNavigate }) => {
@@ -48,6 +48,13 @@ export const Journal: React.FC<JournalProps> = ({ user, savedRecipes = [], onNav
   const remaining = targets.calories - consumed + burned;
   const progress = Math.min(100, (consumed / targets.calories) * 100);
   
+  // Calculate Macros from meals directly for robustness
+  const currentMacros = (logData?.meals || []).reduce((acc: any, meal: any) => ({
+      carbs: acc.carbs + (meal.macros?.carbs || 0),
+      protein: acc.protein + (meal.macros?.protein || 0),
+      fats: acc.fats + (meal.macros?.fats || 0)
+  }), { carbs: 0, protein: 0, fats: 0 });
+
   // Streak Logic
   // We need to determine if the streak is active or broken.
   // Active = lastLogDate is today or yesterday.
@@ -112,7 +119,7 @@ export const Journal: React.FC<JournalProps> = ({ user, savedRecipes = [], onNav
                 </button>
                 <div className="text-center cursor-pointer" onClick={() => setShowCalendar(true)}>
                     <h1 className="text-lg font-black text-gray-800 leading-none hover:text-primary transition-colors">
-                        {isToday ? "Aujourd'hui" : currentDate}
+                        {isToday ? "Today" : currentDate}
                     </h1>
                 </div>
                 <button 
@@ -147,7 +154,7 @@ export const Journal: React.FC<JournalProps> = ({ user, savedRecipes = [], onNav
                 className="bg-white rounded-3xl p-6 mb-6 shadow-sm border border-gray-100 relative overflow-hidden cursor-pointer hover:border-primary/30 transition-all active:scale-[0.99]"
             >
                 <div className="flex justify-between items-start mb-6">
-                    <h2 className="font-bold text-gray-800 text-lg">Résumé</h2>
+                    <h2 className="font-bold text-gray-800 text-lg">Summary</h2>
                     <Icons.ChevronRight className="text-gray-300" size={20} />
                 </div>
 
@@ -171,21 +178,52 @@ export const Journal: React.FC<JournalProps> = ({ user, savedRecipes = [], onNav
                             <span className={`text-3xl font-black tracking-tight ${remaining < 0 ? "text-red-500" : "text-gray-800"}`}>
                                 {Math.round(remaining)}
                             </span>
-                            <span className="text-gray-400 text-[10px] font-bold uppercase">Restantes</span>
+                            <span className="text-gray-400 text-[10px] font-bold uppercase">Remaining</span>
                         </div>
                     </div>
 
                     <div className="flex justify-center w-full px-8 mt-4 text-center">
                         <div>
                             <span className="block text-lg font-bold text-gray-700">{consumed}</span>
-                            <span className="text-xs text-gray-400 font-medium">Mangées</span>
+                            <span className="text-xs text-gray-400 font-medium">Eaten</span>
+                        </div>
+                    </div>
+
+                    {/* Macros Summary Row */}
+                    <div className="flex justify-center gap-8 mt-6 w-full px-4">
+                        <div className="text-center">
+                            <span className="block text-xs font-bold text-gray-400 uppercase mb-1">Carbs</span>
+                            <span className="block text-sm font-black text-gray-800">
+                                {Math.round(currentMacros.carbs)}/<span className="text-gray-400 text-xs">{targets.carbs}g</span>
+                            </span>
+                            <div className="w-12 h-1 bg-gray-100 rounded-full mt-1 overflow-hidden">
+                                <div className="h-full bg-emerald-500" style={{ width: `${Math.min(100, (currentMacros.carbs / targets.carbs) * 100)}%` }} />
+                            </div>
+                        </div>
+                        <div className="text-center">
+                            <span className="block text-xs font-bold text-gray-400 uppercase mb-1">Protein</span>
+                            <span className="block text-sm font-black text-gray-800">
+                                {Math.round(currentMacros.protein)}/<span className="text-gray-400 text-xs">{targets.protein}g</span>
+                            </span>
+                            <div className="w-12 h-1 bg-gray-100 rounded-full mt-1 overflow-hidden">
+                                <div className="h-full bg-blue-500" style={{ width: `${Math.min(100, (currentMacros.protein / targets.protein) * 100)}%` }} />
+                            </div>
+                        </div>
+                        <div className="text-center">
+                            <span className="block text-xs font-bold text-gray-400 uppercase mb-1">Fats</span>
+                            <span className="block text-sm font-black text-gray-800">
+                                {Math.round(currentMacros.fats)}/<span className="text-gray-400 text-xs">{targets.fats}g</span>
+                            </span>
+                            <div className="w-12 h-1 bg-gray-100 rounded-full mt-1 overflow-hidden">
+                                <div className="h-full bg-amber-500" style={{ width: `${Math.min(100, (currentMacros.fats / targets.fats) * 100)}%` }} />
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
             {/* Meals List */}
-            <h2 className="text-lg font-bold text-gray-800 mb-4 px-1">Alimentation</h2>
+            <h2 className="text-lg font-bold text-gray-800 mb-4 px-1">Nutrition</h2>
             
             {MEAL_TYPES.map((type) => {
                 const meals = (logData?.meals || []).filter(m => m.type === type.id);
@@ -224,7 +262,7 @@ export const Journal: React.FC<JournalProps> = ({ user, savedRecipes = [], onNav
                             </div>
                         ) : (
                             <div className="pl-14 py-1 text-left w-full text-gray-300 text-xs font-medium italic">
-                                Aucun aliment ajouté
+                                No food added
                             </div>
                         )}
                     </motion.div>
@@ -235,8 +273,8 @@ export const Journal: React.FC<JournalProps> = ({ user, savedRecipes = [], onNav
             <div className="bg-blue-50 rounded-3xl p-6 mt-6 border border-blue-100">
                 <div className="flex justify-between items-start mb-4">
                     <div>
-                        <h3 className="font-bold text-blue-900">Eau</h3>
-                        <p className="text-blue-400 text-xs font-bold">Objectif: {(targets.water / 1000).toFixed(1)} L</p>
+                        <h3 className="font-bold text-blue-900">Water</h3>
+                        <p className="text-blue-400 text-xs font-bold">Goal: {(targets.water / 1000).toFixed(1)} L</p>
                     </div>
                     <div className="bg-blue-100 p-2 rounded-full text-blue-500">
                         <Icons.Droplet size={20} fill="currentColor" />
@@ -265,21 +303,21 @@ export const Journal: React.FC<JournalProps> = ({ user, savedRecipes = [], onNav
                             onClick={() => updateWater(250)}
                             className="px-6 h-12 bg-blue-500 text-white rounded-xl font-bold flex items-center gap-2 hover:bg-blue-600 transition-all active:scale-95 shadow-lg shadow-blue-500/20"
                         >
-                            <Icons.Plus size={20} /> Ajouter 250 ml
+                            <Icons.Plus size={20} /> Add 250 ml
                          </button>
                      </div>
                 </div>
             </div>
         </div>
 
-        {/* Meal Detail Full Modal */}
-        <AnimatePresence>
-            {openedMealType && (
-                <MealDetailModal 
-                    mealType={MEAL_TYPES.find(t => t.id === openedMealType)!}
-                    currentDate={isToday ? "Aujourd'hui" : currentDate}
-                    consumedItems={(logData?.meals || []).filter(m => m.type === openedMealType)}
-                    savedRecipes={savedRecipes}
+            {/* Meal Detail Full Modal */}
+            <AnimatePresence>
+                {openedMealType && (
+                    <MealDetailModal 
+                        mealType={MEAL_TYPES.find(t => t.id === openedMealType)!}
+                        currentDate={isToday ? "Today" : currentDate}
+                        consumedItems={(logData?.meals || []).filter(m => m.type === openedMealType)}
+                        savedRecipes={savedRecipes}
                 onClose={() => setOpenedMealType(null)}
                 onAddMeal={handleAddMealEntry}
                 onUpdateMeal={handleUpdateMealEntry}
