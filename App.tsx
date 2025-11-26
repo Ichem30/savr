@@ -408,8 +408,7 @@ const AppContent: React.FC = () => {
                         whileHover={{ scale: 1.05, y: -2 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => {
-                            if (generatedRecipes.length > 0) setView('generated-recipes');
-                            else if (pantry.length > 0) handleGenerateRecipes();
+                            if (pantry.length > 0) setView('recipe-filter');
                             else setView('pantry');
                         }} 
                         className="w-14 h-14 bg-gradient-to-br from-primary to-emerald-600 text-white rounded-full flex items-center justify-center shadow-lg shadow-primary/30 border-4 border-gray-50 relative z-10 overflow-hidden group"
