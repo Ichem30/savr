@@ -186,7 +186,7 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({
     setIsLoading(true);
 
     try {
-      const response = await chatWithChef(userMsg.text, messages, user, pantry, currentView);
+      const response = await chatWithChef(userMsg.text, messages, user, pantry, savedRecipes, dailyLog, currentView);
       
       if (response.text) {
         setMessages(prev => [...prev, { role: 'model', text: response.text }]);
@@ -226,7 +226,9 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({
                 const viewMap: Record<string, ViewState> = {
                    'pantry': 'pantry',
                    'profile': 'profile',
-                   'onboarding': 'onboarding'
+                   'onboarding': 'onboarding',
+                   'journal': 'journal',
+                   'recipes': 'recipes'
                 };
                 const target = viewMap[args.screen_name];
                 if (target) {
@@ -241,6 +243,67 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({
                 toolResponseText = `[Updated Profile: ${args.action} ${args.field}]`;
               }
               break;
+            case 'log_meal':
+              if (auth.currentUser && args.name && args.calories) {
+                  const today = new Date().toISOString().split('T')[0];
+                  await addMealToLog(auth.currentUser.uid, today, {
+                      id: Date.now().toString(),
+                      name: args.name,
+                      calories: args.calories,
+                      type: args.meal_type || 'snack',
+                      quantity: args.quantity || 1,
+                      macros: {
+                          protein: args.protein || 0,
+                          carbs: args.carbs || 0,
+                          fats: args.fats || 0
+                      }
+                  });
+                  toolResponseText = `[Logged ${args.name} (${args.calories} kcal)]`;
+                  showToast(`Added ${args.name} to journal`, "success");
+              }
+              break;
+            case 'update_water':
+              if (auth.currentUser && args.amount) {
+                  const today = new Date().toISOString().split('T')[0];
+                  const currentWater = dailyLog?.water || 0;
+                  const newAmount = Math.max(0, currentWater + args.amount);
+                  await updateWaterLog(auth.currentUser.uid, today, newAmount);
+                  toolResponseText = `[Water updated: ${(newAmount/1000).toFixed(1)}L]`;
+                  showToast("Water updated", "success");
+              }
+              break;
+            case 'save_recipe':
+               // We need a recipe object. If it's a generated recipe, we might not have it fully here unless we pass it.
+               // Strategy: Use the list of generated recipes or find it in saved.
+               // Simpler: The AI might want to save a recipe *it just generated*.
+               // This is tricky because `generatedRecipes` state is in App.tsx. 
+               // For now, let's assume this tool is used for existing saved recipes or generic ones?
+               // Actually, `generate_recipes` changes the view. The user saves it manually.
+               // Let's implement 'save_recipe' if the user asks "Save that recipe" referring to a saved one? No, they are already saved.
+               // Referring to a generated one? We don't have access to `generatedRecipes` here.
+               // Let's Skip `save_recipe` for now as it requires complex state access.
+               // Instead, let's support `delete_recipe`.
+               break;
+            case 'delete_recipe':
+               if (auth.currentUser && args.recipe_title) {
+                   const recipeToDelete = savedRecipes.find(r => r.title.toLowerCase().includes(args.recipe_title.toLowerCase()));
+                   if (recipeToDelete) {
+                       await deleteSavedRecipe(auth.currentUser.uid, recipeToDelete.id);
+                       toolResponseText = `[Deleted recipe: ${recipeToDelete.title}]`;
+                       showToast("Recipe deleted", "info");
+                   } else {
+                       toolResponseText = `[Recipe not found: ${args.recipe_title}]`;
+                   }
+               }
+               break;
+             case 'update_weight':
+                if (auth.currentUser && args.weight && user) {
+                    // Update profile with new weight, which also updates history
+                    // We can reuse onUpdateProfile for this
+                    onUpdateProfile('weight', args.weight, 'set');
+                    toolResponseText = `[Weight updated to ${args.weight}kg]`;
+                }
+                break;
           }
 
           if (toolResponseText) {

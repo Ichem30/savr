@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User } from 'firebase/auth';
-import { UserProfile, Ingredient, Recipe, ViewState } from './types';
+import { UserProfile, Ingredient, Recipe, ViewState, DailyLog } from './types';
 import { Auth } from './views/Auth';
 import { Onboarding } from './views/Onboarding';
 import { Pantry } from './views/Pantry';
@@ -25,7 +25,10 @@ import {
   updatePantryItem,
   subscribeToSavedRecipes,
   saveRecipe,
-  deleteSavedRecipe
+  deleteSavedRecipe,
+  subscribeToDailyLog,
+  addMealToLog,
+  updateWaterLog
 } from './services/firebase';
 
 import { RecipeFilter } from './views/RecipeFilter';
@@ -92,6 +95,7 @@ const AppContent: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [pantry, setPantry] = useState<Ingredient[]>([]);
+  const [dailyLog, setDailyLog] = useState<DailyLog | null>(null); // Added
   
   const [generatedRecipes, setGeneratedRecipes] = useState<Recipe[]>([]);
   const [savedRecipes, setSavedRecipes] = useState<Recipe[]>([]);
@@ -153,10 +157,17 @@ const AppContent: React.FC = () => {
       setSavedRecipes(recipes);
     });
 
+    // Subscribe to Daily Log (Today)
+    const today = new Date().toISOString().split('T')[0];
+    const unsubLog = subscribeToDailyLog(currentUser.uid, today, (log) => {
+        setDailyLog(log as DailyLog);
+    });
+
     return () => {
       unsubProfile();
       unsubPantry();
       unsubRecipes();
+      unsubLog();
     };
   }, [currentUser, view]); // Added view dependency to help with the smart redirect logic
 
@@ -541,13 +552,19 @@ const AppContent: React.FC = () => {
                     onSave={handleSaveProfile} 
                     mode={profileMode}
                     onModeChange={setProfileMode}
+                    dailyLog={dailyLog} // Pass dailyLog
                  />
                </PageTransition>
             )}
 
             {view === 'journal' && (
                <PageTransition key="journal">
-                 <Journal user={userProfile} savedRecipes={savedRecipes} onNavigate={setView} />
+                 <Journal 
+                    user={userProfile} 
+                    savedRecipes={savedRecipes} 
+                    onNavigate={setView} 
+                    initialLogData={dailyLog} // Pass dailyLog as initial data (Journal handles date changes internally)
+                 />
                </PageTransition>
             )}
           </AnimatePresence>
@@ -560,6 +577,8 @@ const AppContent: React.FC = () => {
                 constraintsRef={appConstraintsRef}
                 user={userProfile} 
                 pantry={pantry}
+                savedRecipes={savedRecipes} // Pass saved recipes
+                dailyLog={dailyLog} // Pass daily log
                 currentView={view}
                 onAddIngredient={handleAddIngredient}
                 onRemoveIngredient={(name) => {

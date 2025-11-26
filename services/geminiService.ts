@@ -135,6 +135,56 @@ const chatTools: FunctionDeclaration[] = [
       },
       required: ["field", "value", "action"]
     }
+  },
+  {
+    name: "log_meal",
+    description: "Log a meal or food item to the user's daily journal.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        name: { type: Type.STRING, description: "Name of the food" },
+        calories: { type: Type.NUMBER, description: "Estimated calories" },
+        meal_type: { type: Type.STRING, enum: ["breakfast", "lunch", "dinner", "snack"], description: "Type of meal" },
+        quantity: { type: Type.NUMBER, description: "Quantity/Portions (default 1)" },
+        protein: { type: Type.NUMBER, description: "Protein in grams" },
+        carbs: { type: Type.NUMBER, description: "Carbs in grams" },
+        fats: { type: Type.NUMBER, description: "Fats in grams" }
+      },
+      required: ["name", "calories"]
+    }
+  },
+  {
+    name: "update_water",
+    description: "Add or remove water intake in milliliters.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        amount: { type: Type.NUMBER, description: "Amount in ml. Positive to add, negative to remove." }
+      },
+      required: ["amount"]
+    }
+  },
+  {
+    name: "delete_recipe",
+    description: "Delete a saved recipe from the user's cookbook.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        recipe_title: { type: Type.STRING, description: "Title of the recipe to delete" }
+      },
+      required: ["recipe_title"]
+    }
+  },
+  {
+    name: "update_weight",
+    description: "Update the user's current weight.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        weight: { type: Type.NUMBER, description: "New weight in kg" }
+      },
+      required: ["weight"]
+    }
   }
 ];
 
@@ -255,6 +305,8 @@ export const chatWithChef = async (
   history: ChatMessage[],
   user: UserProfile,
   pantry: Ingredient[],
+  savedRecipes: Recipe[], // Added
+  dailyLog: any | null, // Added (Using 'any' or import DailyLog type if available)
   currentView: string
 ): Promise<{ text: string, functionCalls: any[] }> => {
   try {
@@ -264,7 +316,15 @@ export const chatWithChef = async (
     const ai = new GoogleGenAI({ apiKey });
 
     const pantryList = pantry.map(i => `${i.name} ${i.quantity ? `(${i.quantity})` : ''}`).join(', ');
+    const savedRecipesList = savedRecipes.map(r => r.title).join(', ');
     
+    // Format daily log summary
+    const logSummary = dailyLog ? `
+      - Calories Consumed: ${dailyLog.consumed} kcal
+      - Water: ${(dailyLog.water || 0) / 1000} L
+      - Meals: ${(dailyLog.meals || []).map((m: any) => `${m.name} (${m.calories}kcal)`).join(', ')}
+    ` : "No entries today yet.";
+
     const systemInstruction = `
       You are "Chef Remy", a friendly, helpful, and knowledgeable personal AI Chef assistant inside the "Savr" app.
       
@@ -274,9 +334,12 @@ export const chatWithChef = async (
       CURRENT APP STATE (This is the Source of Truth):
       - User Name: ${user.name}
       - User Goal: ${user.goal}
+      - Weight: ${user.weight} kg
       - Allergies: ${user.allergies.join(', ')}
       - Current View/Page: ${currentView}
       - Pantry Inventory: ${pantryList || "Empty"}
+      - Saved Recipes: ${savedRecipesList || "None"}
+      - Today's Journal: ${logSummary}
 
       YOUR CAPABILITIES:
       - You can answer questions about food, cooking, and nutrition.
@@ -285,14 +348,17 @@ export const chatWithChef = async (
         - **IMPORTANT**: Infer 'meal_type' based on the current time if not specified (e.g., Morning -> Breakfast).
         - Infer 'time_limit' if they mention being in a rush.
       - If the user says "I bought some eggs", use 'add_pantry_item'.
-      - If the user says "I hate onions", use 'update_profile'.
+      - If the user says "I ate an apple", use 'log_meal' (estimate calories/macros if needed, e.g. Apple ~95kcal).
+      - If the user says "I drank a glass of water", use 'update_water' (Glass ~250ml).
+      - If the user updates their weight, use 'update_weight'.
+      - If the user dislikes something, use 'update_profile'.
       - Always be encouraging about food waste reduction.
 
       IMPORTANT RULES:
       1. **ALWAYS** provide a text response confirming your action *before* or *while* using a tool. Do not just execute the tool silently.
       2. **Trust the CURRENT APP STATE** listed above over any previous conversation history. If the history says eggs were added but the Current Pantry Inventory above is empty, then the eggs were deleted. The Current App State is live.
-      3. **USE TOOLS**: When the user asks to add items, you MUST call the \`add_pantry_item\` function. Do not just say "I added it". If no quantity is specified, omit the quantity field.
-      5. **CHAINING TOOLS**: If the user says "I have chicken, what can I make?", you must FIRST call \`add_pantry_item\` for the chicken, AND THEN call \`generate_recipes\` in the same turn. Don't wait for user confirmation.
+      3. **USE TOOLS**: When the user asks to add items, log food, or update data, you MUST call the corresponding function.
+      4. **CHAINING TOOLS**: If needed, call multiple tools (e.g. add ingredient and then generate recipe).
     `;
 
     // Filter and format history to prevent empty text errors
